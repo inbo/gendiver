@@ -2,7 +2,7 @@
 # Pre-processing #
 ##################
 
-summarize_result_dir = function(mydir, stepname, logpattern = ".log", runShell=T){
+hpc.read.preprocess_logs = function(mydir, stepname, logpattern = ".log", runShell=T){
 
   # Check if logfiles
   lfiles = list.files(mydir, pattern = logpattern, full.names = T)
@@ -11,23 +11,18 @@ summarize_result_dir = function(mydir, stepname, logpattern = ".log", runShell=T
                                    "read_count" = NA)
 
   if (stepname=="merged"){
-    read_count_track.df$read_count = sapply(lfiles, extract_readcount_from_mergepairs_log)
+    read_count_track.df$read_count = sapply(lfiles, extract.mergepairs_log.readcount)
     new_pattern=".fastq"
   }
 
   if (stepname=="trimmed"){
-    read_count_track.df$read_count = sapply(lfiles, extract_readcount_from_cutadapt_log)
+    read_count_track.df$read_count = sapply(lfiles, extract.cutadapt_log.readcount)
     new_pattern=".fastq"
   }
 
   if (stepname=="filter"){
-    read_count_track.df$read_count = sapply(lfiles, extract_readcount_from_fastqfilter_log)
+    read_count_track.df$read_count = sapply(lfiles, extract.fastqfilter_log.readcount)
     new_pattern=".fasta"
-  }
-
-  if (sum(!is.na(read_count_track.df$read_count)) != nrow(read_count_track.df) & runShell){
-    print("No appropriate logfiles found - counting ...")
-    read_count_track.df = count_sequences_per_file(mydir, file_pattern=new_pattern)
   }
 
   return(read_count_track.df)
@@ -40,13 +35,13 @@ summarize_result_dir = function(mydir, stepname, logpattern = ".log", runShell=T
 # }
 
 # read read-counts from logfile - VSEARCH --mergepairs
-extract_readcount_from_mergepairs_log = function(logfile){
+extract.mergepairs_log.readcount = function(logfile){
   readsl = readLines(logfile)[6]
   return(as.integer(trimws(strsplit(readsl, "Merged")[[1]][1])))
 }
 
 # read vsearch --fastq_mergepairs log file to get total input reads (version 2.22.1)
-get_tot_input_from_mergepairs_log = function(log.path){
+extract.mergepairs_log.tot_input = function(log.path){
   fcon = file(log.path)
   merge_input = trimws(readLines(fcon)[5])
   close(fcon)
@@ -54,7 +49,7 @@ get_tot_input_from_mergepairs_log = function(log.path){
 }
 
 # read read-counts from logfile - CUTADAPT
-extract_readcount_from_cutadapt_log = function(logfile){
+extract.cutadapt_log.readcount = function(logfile){
   if (readLines(logfile)[4] == "No reads processed!" ) {
     return(0)
   }
@@ -66,13 +61,13 @@ extract_readcount_from_cutadapt_log = function(logfile){
 }
 
 # read read-counts from logfile - VSEARCH - fastq_filter
-extract_readcount_from_fastqfilter_log = function(logfile){
+extract.fastqfilter_log.readcount = function(logfile){
   readsl = readLines(logfile)[5]
   x = strsplit(readsl, "\\s")[[1]][1]
   return(as.integer(x))
 }
 
-translate_output_type_2_toolname = function(x){
+translate.type2tool = function(x){
   # Initiate translation-result list
   x_trans = rep(NA, length(x))
   # demultiplexing
@@ -86,4 +81,3 @@ translate_output_type_2_toolname = function(x){
   # Output
   return(x_trans)
 }
-

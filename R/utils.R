@@ -1,6 +1,7 @@
 #########################
 ### Utility functions ###
 #########################
+# not for pkg-users
 
 extract_sample_name = function(x){
   # note the loose regex (*) for third digit -> extraction date can be missing
@@ -12,7 +13,6 @@ extract_sample_name = function(x){
   return(y)
 
 }
-
 
 # Look at the per-sample files generated during pre-processing and extract process info
 extract_filename_info = function(file_name, sample_id_regex){

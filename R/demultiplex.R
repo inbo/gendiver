@@ -2,8 +2,19 @@
 # Demultiplexing #
 ##################
 
-# Find and read auto-generated demultiplexing results from demultiplexing folder
-read_demultiplex_summary_files = function(data_dir, summary_file_pattern="sample.txt"){
+#' Read per-sample readcounts from summary files after demultiplexing job
+#'
+#' Find and read auto-generated demultiplexing results from demultiplexing folder
+#'
+#' @param data_dir File path to the `02_demultiplex/` dir
+#' @param summary_file_pattern Pattern to recognize summary files (default="sample.txt)
+#'
+#' @returns Dataframe with read counts per sample
+#' @export
+#'
+#' @examples
+#' #To add
+read.demultiplex_summary_files = function(data_dir, summary_file_pattern="sample.txt"){
   # Initialize readcount tracking df
   read_count_track.df = data.frame("file_name"=character(),
                                    "read_count"=numeric(),
@@ -15,7 +26,7 @@ read_demultiplex_summary_files = function(data_dir, summary_file_pattern="sample
   for (mylib in demultiplex_res_lib_paths){
     readcounts_file = list.files(mylib, pattern = summary_file_pattern, full.names = T)
     if (length(readcounts_file) > 0) {
-      count_tab = read.table(readcounts_file)
+      count_tab = utils::read.table(readcounts_file)
       colnames(count_tab) = c("file_name", 'read_count')
       count_tab$multiplexed_source = basename(mylib)
       read_count_track.df=rbind(read_count_track.df, count_tab)
