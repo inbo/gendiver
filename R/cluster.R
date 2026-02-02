@@ -16,7 +16,7 @@
 read.vsearch_otu_table = function(otu_table_path){
   otu_df <- utils::read.csv(otu_table_path, sep='\t', header = T)
   colnames(otu_df) = gsub(pattern = "^X\\.*", replacement = "", colnames(otu_df))
-  rownames(otu_df) = otu_df$OTU.ID
+  rownames(otu_df) = otu_df[,1]
   return(otu_df[-1])
 }
 
