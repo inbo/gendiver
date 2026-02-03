@@ -20,16 +20,14 @@ clean_colnames = function(x){
 #' @export
 #'
 #' @examples
-#' my_sample_data_df = read.lab_sample_sheet("1cWkVqk3y7668OVRhIlpa0fUmTh4oJTRWUqp60GRJ5J8")
-read.lab_sample_sheet = function(sample_metadata_path){
-  # 1. read xlsx file and convert to dataframe
+#' # If access to INBO GDRIVE, run:
+#' my_sample_data_df = read.sample_sheet_lab("1cWkVqk3y7668OVRhIlpa0fUmTh4oJTRWUqp60GRJ5J8")
+read.sample_sheet_lab = function(sample_metadata_path){
+  # 1. read xlsx file or GSHEET and convert to dataframe
   if (file.exists(sample_metadata_path)){
     sample_metadata = as.data.frame(readxl::read_xlsx(sample_metadata_path))
   } else {
-    # try to interpret as google sheets ID-key
-    # need to have run
-    ## library(googlesheets4)
-    ## googlesheets4::gs4_auth(USER_NAME)
+    # try to interpret as google sheets ID-key or URL
     sample_metadata = as.data.frame(googlesheets4::read_sheet(sample_metadata_path, sheet=1))
   }
 
@@ -47,12 +45,12 @@ read.lab_sample_sheet = function(sample_metadata_path){
   return(sample_metadata)
 }
 
-#' Create barcode-file for demultiplexing
+#' Write barcode-file for demultiplexing
 #'
 #' Loop over all multiplexed sample names (POOLS) and write TSV with USI - barcodes combinations
 #' Check the lab-sample-sheet you use that each USI-barcode combination is UNIQUE!
 #'
-#' @param lab_sample_sheet Dataframe with lab-sample-data (see \link[gendiver]{read.lab_sample_sheet})
+#' @param lab_sample_sheet Dataframe with lab-sample-data (see \link[gendiver]{read.sample_sheet_lab})
 #' @param out_dir Directory path to write barcode-files to
 #' @param LIB_COL Column name or ID designating the multiplexed POOLs
 #'
@@ -60,7 +58,7 @@ read.lab_sample_sheet = function(sample_metadata_path){
 #' @export
 #'
 #' @examples
-#' my_sample_data_df = read.lab_sample_sheet("1cWkVqk3y7668OVRhIlpa0fUmTh4oJTRWUqp60GRJ5J8")
+#' my_sample_data_df = read.sample_sheet_lab("1cWkVqk3y7668OVRhIlpa0fUmTh4oJTRWUqp60GRJ5J8")
 #' write.barcode_files(my_sample_data_df, out_dir=tempdir())
 write.barcode_files = function(lab_sample_sheet, out_dir, LIB_COL=1){
 

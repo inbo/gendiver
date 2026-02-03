@@ -95,7 +95,7 @@ clean.ps_sample_sheet = function(ps_obj){
 #'
 #' @examples
 #' #To add
-qcplot.plate_layout_top_taxa = function(ps_obj, omit_cutoff = 100){
+qcplot.plate_heatmap_toptaxa = function(ps_obj, omit_cutoff = 100){
   # plot top taxa over the plate layout
   sample_metadata = clean.ps_sample_sheet(ps_obj)
 
@@ -145,15 +145,15 @@ qcplot.plate_layout_top_taxa = function(ps_obj, omit_cutoff = 100){
 #'
 #' @examples
 #' #To add
-qcplot.plate_layout_sample_sum = function(ps_obj, omit_cutoff = 100){
+qcplot.plate_heatmap_readcount = function(ps_obj, omit_cutoff = 100){
   # plot top taxa over the plate layout
   sample_metadata = clean.ps_sample_sheet(ps_obj)
 
   tot_count = data.frame("total_reads" = phyloseq::sample_sums(ps_obj))
 
-  xx = merge(sample_metadata, tot_count, by=0,all.x = T)
+  xx_p = merge(sample_metadata, tot_count, by=0,all.x = T)
 
-  xx_p = xx[xx$total_reads > omit_cutoff,]
+  xx_p[xx_p$total_reads < omit_cutoff] = 0
 
   plate_layout_plot = ggplot2::ggplot(
     data=xx_p,

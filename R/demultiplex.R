@@ -14,7 +14,7 @@
 #'
 #' @examples
 #' #To add
-read.demultiplex_summary_files = function(data_dir, summary_file_pattern="sample.txt"){
+read.summary_files_demultiplex = function(data_dir, summary_file_pattern="sample.txt"){
   # Initialize readcount tracking df
   read_count_track.df = data.frame("file_name"=character(),
                                    "read_count"=numeric(),

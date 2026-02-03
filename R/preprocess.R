@@ -2,7 +2,7 @@
 # Pre-processing #
 ##################
 
-hpc.read.preprocess_logs = function(mydir, stepname, logpattern = ".log", runShell=T){
+hpc.read.logs_preprocess = function(mydir, stepname, logpattern = ".log", runShell=T){
 
   # Check if logfiles
   lfiles = list.files(mydir, pattern = logpattern, full.names = T)

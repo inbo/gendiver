@@ -14,7 +14,7 @@
 #'
 #' @examples
 #' #To add
-read.obitools3_taxonomy = function(tax_table_path){
+read.taxonomy_obitools3 = function(tax_table_path){
   tax_df = utils::read.csv(tax_table_path, sep='\t', header = T)
   rownames(tax_df) = gsub(pattern = ";size=\\d*", replacement = "", x = tax_df$ID)
   return(tax_df)
@@ -25,7 +25,7 @@ read.obitools3_taxonomy = function(tax_table_path){
 #' Basic pruning of OBITools3 taxonomy dataframe (for RIAZ primer), formatting, adding custom taxon for team gendiv,
 #' adding unclassified labels, cleaning and converting to phyloseq tax_table() compatible dataframe
 #'
-#' @param tax_df Dataframe of (obitools3) taxonomy table (see \link[gendiver]{read.obitools3_taxonomy})
+#' @param tax_df Dataframe of (obitools3) taxonomy table (see \link[gendiver]{read.taxonomy_obitools3})
 #' @param min_BEST_ID Minimum identity match for ASV to be retained. Default=1, retain only ASVs with perfect match to RefDB
 #' @param max_BEST_ID Maximum identity match for ASV to be retained. Default=1, retain only ASVs with perfect match to RefDB
 #'
@@ -34,7 +34,7 @@ read.obitools3_taxonomy = function(tax_table_path){
 #'
 #' @examples
 #' #To add
-select.obitools3_asv_taxonomy = function(tax_df, min_BEST_ID=1, max_BEST_ID=1){
+select.taxonomy_obitools3 = function(tax_df, min_BEST_ID=1, max_BEST_ID=1){
   #only keep taxa with BEST_ID==1
   print(paste("using min_BEST_ID =", min_BEST_ID, "and max_BEST_ID =", max_BEST_ID))
   filt_nr_asv = nrow(tax_df[! (max_BEST_ID >= tax_df$BEST_IDENTITY & tax_df$BEST_IDENTITY >= min_BEST_ID),])
@@ -77,7 +77,7 @@ select.obitools3_asv_taxonomy = function(tax_df, min_BEST_ID=1, max_BEST_ID=1){
 #'
 #' @examples
 #' #To add
-pull.obitools3_taxonomy = function(tax_table_path, min_BEST_ID=1, max_BEST_ID=1){
+pull.taxonomy_obitools3 = function(tax_table_path, min_BEST_ID=1, max_BEST_ID=1){
   tax_df = read.obitools3_taxonomy(tax_table_path)
   tax_out = select.obitools3_asv_taxonomy(tax_df, min_BEST_ID, max_BEST_ID)
   return(tax_out)
@@ -144,7 +144,7 @@ parse_tax_string = function(x, is_pred=F){
 #'
 #' @examples
 #' #To add
-read.sintax_taxonomy = function(sintax_path, read_supported_only=TRUE, add_source=FALSE, clean_tax=FALSE){
+read.taxonomy_sintax = function(sintax_path, read_supported_only=TRUE, add_source=FALSE, clean_tax=FALSE){
 
   rtab=utils::read.csv(sintax_path, sep = "\t", header = F, col.names = c("QUERY_LABEL","TAX_PRED", "STRAND", "TAX_PRED_CUTOFF" ))
 
@@ -180,7 +180,7 @@ read.sintax_taxonomy = function(sintax_path, read_supported_only=TRUE, add_sourc
 #'
 #' @examples
 #' #To add
-read.idtaxa_taxonomy = function(tax_tab_path, read_supported_only=TRUE, add_source=FALSE, clean_tax=FALSE){
+read.taxonomy_idtaxa = function(tax_tab_path, read_supported_only=TRUE, add_source=FALSE, clean_tax=FALSE){
 
   taxranks = c("d", "p", "c", "o", "f", "g", "s")
 
@@ -224,7 +224,7 @@ read.idtaxa_taxonomy = function(tax_tab_path, read_supported_only=TRUE, add_sour
 #'
 #' @examples
 #' #To add
-read.boldigger3_xlsx = function(tax_tab_path, add_source = FALSE, clean_tax=FALSE){
+read.taxonomy_boldigger3 = function(tax_tab_path, add_source = FALSE, clean_tax=FALSE){
   x_ = readxl::read_xlsx(tax_tab_path)
   x_ = as.data.frame(x_[, c(1:7)])
   colnames(x_) = c("QUERY_LABEL" ,"p"         ,   "c"       ,     "o"       ,     "f"         ,   "g"        ,    "s"  )

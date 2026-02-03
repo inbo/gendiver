@@ -13,7 +13,7 @@
 #'
 #' @examples
 #' #To add
-read.vsearch_otu_table = function(otu_table_path){
+read.otu_table_vsearch = function(otu_table_path){
   otu_df <- utils::read.csv(otu_table_path, sep='\t', header = T)
   colnames(otu_df) = gsub(pattern = "^X\\.*", replacement = "", colnames(otu_df))
   rownames(otu_df) = otu_df[,1]
@@ -32,7 +32,7 @@ read.vsearch_otu_table = function(otu_table_path){
 #'
 #' @examples
 #' #To add
-read.obitools3_otu_table = function(otu_table_path){
+read.otu_table_obitools3 = function(otu_table_path){
   # Read table
   otu_df <- utils::read.csv(otu_table_path, sep='\t', header = T)
   # Make OTU ID the rownames
@@ -63,7 +63,7 @@ read.obitools3_otu_table = function(otu_table_path){
 #'
 #' @examples
 #' #To add
-read.mumu_log = function(mumu_log_path){
+read.log_mumu = function(mumu_log_path){
   mumu_log = utils::read.table(mumu_log_path)
   colnames(mumu_log) = c("query_otu", "parent_otu", "percent_similarity", "total_abundance_q", "total_abundance_p",
                          "overlap_abundance_q", "overlap_abundance_p", "incidence_q", "incidence_p", "incidence_both",
