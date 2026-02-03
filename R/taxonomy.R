@@ -78,8 +78,8 @@ select.taxonomy_obitools3 = function(tax_df, min_BEST_ID=1, max_BEST_ID=1){
 #' @examples
 #' #To add
 pull.taxonomy_obitools3 = function(tax_table_path, min_BEST_ID=1, max_BEST_ID=1){
-  tax_df = read.obitools3_taxonomy(tax_table_path)
-  tax_out = select.obitools3_asv_taxonomy(tax_df, min_BEST_ID, max_BEST_ID)
+  tax_df = gendiver::read.taxonomy_obitools3(tax_table_path)
+  tax_out = gendiver::select.taxonomy_obitools3(tax_df, min_BEST_ID, max_BEST_ID)
   return(tax_out)
 }
 
