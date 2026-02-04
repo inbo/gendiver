@@ -7,7 +7,7 @@
 #'
 #' Reading and general cleaning/pruning of OBITOOLS3 ecotag output
 #'
-#' @param tax_table_path Path to taxonomy table file
+#' @param tax_table_path Path to taxonomy table file (can also be link to Googe Drive)
 #'
 #' @returns Dataframe with taxonomy information (columns) per ASV (rows)
 #' @export
@@ -15,7 +15,7 @@
 #' @examples
 #' #To add
 read.taxonomy_obitools3 = function(tax_table_path){
-  tax_df = utils::read.csv(tax_table_path, sep='\t', header = T)
+  tax_df = read.table_gdrive(tax_table_path, sep='\t', header = T)
   rownames(tax_df) = gsub(pattern = ";size=\\d*", replacement = "", x = tax_df$ID)
   return(tax_df)
 }
@@ -69,7 +69,7 @@ select.taxonomy_obitools3 = function(tax_df, min_BEST_ID=1, max_BEST_ID=1){
 #'
 #' Wrapper for reading and cleaning obitools3 tax table to phyloseq tax_table() compatible dataframe
 #'
-#' @param tax_table_path Path to taxonomy table file
+#' @param tax_table_path Path to taxonomy table file (can also be link to Googe Drive)
 #' @param min_BEST_ID Minimum identity match for ASV to be retained. Default=1, retain only ASVs with perfect match to RefDB
 #' @param max_BEST_ID Maximum identity match for ASV to be retained. Default=1, retain only ASVs with perfect match to RefDB
 #'
@@ -146,8 +146,7 @@ parse_tax_string = function(x, is_pred=F){
 #' @examples
 #' #To add
 read.taxonomy_sintax = function(sintax_path, read_supported_only=TRUE, add_source=FALSE, clean_tax=FALSE){
-
-  rtab=utils::read.csv(sintax_path, sep = "\t", header = F, col.names = c("QUERY_LABEL","TAX_PRED", "STRAND", "TAX_PRED_CUTOFF" ))
+  rtab = read.table_gdrive(sintax_path, sep = "\t", header = F, col.names = c("QUERY_LABEL","TAX_PRED", "STRAND", "TAX_PRED_CUTOFF" ))
 
   # order the input on string length to increase chance of full taxonomy template
   rtab = rtab[order(nchar(rtab$TAX_PRED_CUTOFF), decreasing = T),]
@@ -171,7 +170,7 @@ read.taxonomy_sintax = function(sintax_path, read_supported_only=TRUE, add_sourc
 #'
 #' Reading and general cleaning/pruning of DECIPHER IdTaxa() output
 #'
-#' @param tax_tab_path Path to taxonomy CSV table file
+#' @param tax_tab_path Path to taxonomy CSV table file (can also be link to Googe Drive)
 #' @param read_supported_only Only positive annotations (default=TRUE)
 #' @param add_source Add basename of `tax_tab_path` to output dataframe (default=FALSE)
 #' @param clean_tax Try to remove non-informative text in taxonomic annotations (default=FALSE)
@@ -185,7 +184,7 @@ read.taxonomy_idtaxa = function(tax_tab_path, read_supported_only=TRUE, add_sour
 
   taxranks = c("d", "p", "c", "o", "f", "g", "s")
 
-  tabraw = utils::read.csv(tax_tab_path, sep = ";", header = F)
+  tabraw = read.table_gdrive(tax_tab_path, sep = ";", header = F)
   colnames(tabraw) = c("QUERY_LABEL", taxranks)
 
   # WHY did we invent a new format (mixed \t and ;sv) for the taxonomy table of IDTAXA ????

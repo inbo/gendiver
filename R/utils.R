@@ -22,3 +22,30 @@ extract_filename_info = function(file_name, sample_id_regex){
 
   return(info_part)
 }
+
+#' Try to read a table from File Path or google Drive
+#'
+#' At INBO Google Drive is the main platform for RDM. This functions can read CSV tables from Google Drive link
+#' (right-click file, "Share", "Copy link")
+#'
+#' @param file_id Path or URL (Google Drive) to a tabular file that can be read with \link[utils]{read.table}
+#' @param ... See \link[utils]{read.table}
+#'
+#' @returns Dataframe with MUMU log
+#' @export
+#'
+#' @examples
+#' #To add
+read.table_gdrive =  function(file_id, ...){
+  if (file.exists(file_id)){
+    message('Reading from File Path')
+    out = utils::read.csv(
+      file=file_id, ...)
+  } else {
+    message('Reading from Google Drive')
+    out = utils::read.csv(
+      text = googledrive::drive_read_string(file_id),
+      ...)
+  }
+  return(out)
+}
