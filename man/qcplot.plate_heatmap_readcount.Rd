@@ -4,12 +4,18 @@
 \alias{qcplot.plate_heatmap_readcount}
 \title{Total Readcount Density Heatmap for QC}
 \usage{
-qcplot.plate_heatmap_readcount(ps_obj, omit_cutoff = 100)
+qcplot.plate_heatmap_readcount(
+  ps_obj,
+  omit_cutoff = 100,
+  transform = "identity"
+)
 }
 \arguments{
 \item{ps_obj}{Phyloseq object as INPUT}
 
 \item{omit_cutoff}{integer, omit samples with less than n reads (default=100). This is important for color gradient to make sense.}
+
+\item{transform}{(default="identity") See \link[ggplot2]{scale_continuous}, e.g. "log2", "log10", "sqrt", ...}
 }
 \value{
 ggplot2::geom_tile()

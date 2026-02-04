@@ -2,7 +2,7 @@
 % Please edit documentation in R/taxonomy.R
 \name{pull.taxonomy_obitools3}
 \alias{pull.taxonomy_obitools3}
-\title{Filter ASV data for eDNA-water (12S primers)}
+\title{Read and Filter ASV data for eDNA-water (12S primers)}
 \usage{
 pull.taxonomy_obitools3(tax_table_path, min_BEST_ID = 1, max_BEST_ID = 1)
 }

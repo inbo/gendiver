@@ -139,6 +139,7 @@ qcplot.plate_heatmap_toptaxa = function(ps_obj, omit_cutoff = 100){
 #'
 #' @param ps_obj Phyloseq object as INPUT
 #' @param omit_cutoff integer, omit samples with less than n reads (default=100). This is important for color gradient to make sense.
+#' @param transform (default="identity") See \link[ggplot2]{scale_continuous}, e.g. "log2", "log10", "sqrt", ...
 #'
 #' @returns ggplot2::geom_tile()
 #' @export
