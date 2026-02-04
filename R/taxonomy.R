@@ -55,16 +55,17 @@ select.taxonomy_obitools3 = function(tax_df, min_BEST_ID=1, max_BEST_ID=1){
   taxonomy$custom_taxon[taxonomy$custom_taxon == "Actinopteri"] = "Fish"
   taxonomy$custom_taxon[taxonomy$custom_taxon == "Hyperoartia"] = "Fish"
   taxonomy$custom_taxon[taxonomy$custom_taxon == "Amphibia"] = "Amphibians"
-
-  taxonomy = taxonomy[, c("phylum","custom_taxon", "class", "order", "family", "genus", "species")]
+  taxonomy$custom_taxon[is.na(taxonomy$custom_taxon)]="Other"
 
   # change NA names to unclassified
   taxonomy_tab = propagate.unclassified_taxonomy(taxonomy)
 
+  taxonomy_tab = taxonomy_tab[, c("phylum","custom_taxon", "class", "order", "family", "genus", "species")]
+
   return(taxonomy_tab)
 }
 
-#' Filter ASV data for eDNA-water (12S primers)
+#' Read and Filter ASV data for eDNA-water (12S primers)
 #'
 #' Wrapper for reading and cleaning obitools3 tax table to phyloseq tax_table() compatible dataframe
 #'
