@@ -145,25 +145,26 @@ qcplot.plate_heatmap_toptaxa = function(ps_obj, omit_cutoff = 100){
 #'
 #' @examples
 #' #To add
-qcplot.plate_heatmap_readcount = function(ps_obj, omit_cutoff = 100){
+qcplot.plate_heatmap_readcount = function(ps_obj, omit_cutoff = 100, transform="identity"){
   # plot top taxa over the plate layout
   sample_metadata = clean.ps_sample_sheet(ps_obj)
 
   tot_count = data.frame("total_reads" = phyloseq::sample_sums(ps_obj))
 
   xx_p = merge(sample_metadata, tot_count, by=0,all.x = T)
-
-  xx_p[xx_p$total_reads < omit_cutoff] = 0
+  xx_p = xx_p[xx_p$total_reads >= omit_cutoff,]
+  # xx_p$total_reads[xx_p$total_reads < omit_cutoff] = NA
 
   plate_layout_plot = ggplot2::ggplot(
     data=xx_p,
     ggplot2::aes(x = .data$WELL_COLUMN, y=.data$WELL_ROW, fill=.data$total_reads)) +
     ggplot2::geom_tile() +
-    ggplot2::facet_wrap(~.data$PLATE, ncol = 3, scales = "free") +
-    ggplot2::scale_fill_gradient(high="red", low="green") +
+    ggplot2::facet_wrap(~.data$PLATE, ncol = 3) +
+    ggplot2::scale_fill_gradient(high="red", low="lightblue", transform=transform) +
     ggplot2::theme_classic() +
-    ggplot2::ggtitle("Number of reads per well",
-            subtitle = paste("Colors correspond total read number. Samples with <", omit_cutoff, "reads are omitted")
+    ggplot2::scale_y_discrete(limits=rev) +
+    ggplot2::ggtitle(paste0("Number of reads (",transform,") per well"),
+            subtitle = paste0("Colors correspond total read number (",transform,"). Samples with < ", omit_cutoff, " reads are omitted")
     )
 
   return(plate_layout_plot)
