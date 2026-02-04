@@ -7,7 +7,7 @@
 read.taxonomy_obitools3(tax_table_path)
 }
 \arguments{
-\item{tax_table_path}{Path to taxonomy table file}
+\item{tax_table_path}{Path to taxonomy table file (can also be link to Googe Drive)}
 }
 \value{
 Dataframe with taxonomy information (columns) per ASV (rows)

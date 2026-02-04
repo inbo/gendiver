@@ -7,7 +7,7 @@
 pull.taxonomy_obitools3(tax_table_path, min_BEST_ID = 1, max_BEST_ID = 1)
 }
 \arguments{
-\item{tax_table_path}{Path to taxonomy table file}
+\item{tax_table_path}{Path to taxonomy table file (can also be link to Googe Drive)}
 
 \item{min_BEST_ID}{Minimum identity match for ASV to be retained. Default=1, retain only ASVs with perfect match to RefDB}
 

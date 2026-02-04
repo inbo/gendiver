@@ -7,7 +7,7 @@
 read.otu_table_obitools3(otu_table_path)
 }
 \arguments{
-\item{otu_table_path}{Path to OTU table file}
+\item{otu_table_path}{Path to OTU table file (can also be link to Googe Drive)}
 }
 \value{
 Dataframe with read counts per ASV (rows) per sample (columns)

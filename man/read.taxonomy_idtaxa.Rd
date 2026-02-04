@@ -12,7 +12,7 @@ read.taxonomy_idtaxa(
 )
 }
 \arguments{
-\item{tax_tab_path}{Path to taxonomy CSV table file}
+\item{tax_tab_path}{Path to taxonomy CSV table file (can also be link to Googe Drive)}
 
 \item{read_supported_only}{Only positive annotations (default=TRUE)}
 

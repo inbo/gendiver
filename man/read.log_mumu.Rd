@@ -7,7 +7,7 @@
 read.log_mumu(mumu_log_path)
 }
 \arguments{
-\item{mumu_log_path}{Path to MUMU logfile}
+\item{mumu_log_path}{Path to MUMU logfile (can also be link to Googe Drive)}
 }
 \value{
 Dataframe with MUMU log

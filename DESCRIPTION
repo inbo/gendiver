@@ -19,5 +19,6 @@ Imports:
     phyloseq,
     ggplot2,
     stringr,
-    data.table
+    data.table,
+    googledrive
 RoxygenNote: 7.3.1

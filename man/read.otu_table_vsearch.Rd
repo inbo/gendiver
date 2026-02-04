@@ -7,7 +7,7 @@
 read.otu_table_vsearch(otu_table_path)
 }
 \arguments{
-\item{otu_table_path}{Path to OTU table file}
+\item{otu_table_path}{Path to OTU table file (can also be link to Googe Drive)}
 }
 \value{
 Dataframe with read counts per (z)OTU (rows) per sample (columns)
