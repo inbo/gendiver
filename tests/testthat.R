@@ -9,4 +9,8 @@
 library(testthat)
 library(gendiver)
 
+# Authentication for tests (1 email, token cached)
+googledrive::drive_auth(T)
+googlesheets4::gs4_auth(T)
+
 test_check("gendiver")

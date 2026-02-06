@@ -63,7 +63,7 @@ read.otu_table_obitools3 = function(otu_table_path){
 #' @examples
 #' #To add
 read.log_mumu = function(mumu_log_path){
-  mumu_log = read.table_gdrive(mumu_log_path, header = F)
+  mumu_log = read.table_gdrive(mumu_log_path, header = F, sep="\t")
   colnames(mumu_log) = c("query_otu", "parent_otu", "percent_similarity", "total_abundance_q", "total_abundance_p",
                          "overlap_abundance_q", "overlap_abundance_p", "incidence_q", "incidence_p", "incidence_both",
                          "min_abundance_ratio", "sum_abundance_ratio", "mean_abundance_ratio",
