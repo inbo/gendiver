@@ -161,9 +161,10 @@ read.taxonomy_sintax = function(sintax_path, read_supported_only=TRUE, add_sourc
     ## Read complete prediction
     tax_supp = data.table::rbindlist(lapply(rtab$TAX_PRED, parse_tax_string, is_pred = T), fill = T)
   }
+  tax_supp = as.data.frame(tax_supp)
 
-  # Add OTU-IDs back to data
-  row.names(tax_supp) = rtab$QUERY_LABEL
+  # Add OTU-IDs back to data (and remove possible ';size=' info)
+  rownames(tax_supp) = gsub(";size=\\d*", "" , rtab$QUERY_LABEL)
 
   if (clean_tax) {tax_supp = clean_taxonomies(tax_supp)}
   if (add_source) {tax_supp$SOURCE_FILE = basename(sintax_path)}
