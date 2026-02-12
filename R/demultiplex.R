@@ -14,11 +14,11 @@
 #'
 #' @examples
 #' #To add
-read.summary_files_demultiplex = function(data_dir, summary_file_pattern="sample.txt"){
+read.summary_files_demultiplex = function(data_dir, summary_file_pattern = "sample.txt"){
   # Initialize readcount tracking df
-  read_count_track.df = data.frame("file_name"=character(),
-                                   "read_count"=numeric(),
-                                   "multiplexed_source"=character())
+  read_count_track.df = data.frame("file_name" = character(),
+                                   "read_count" = numeric(),
+                                   "multiplexed_source" = character())
 
   ## Read for each DEMULTIPLEXED lib the sample counts (from count seqs PBS)
   demultiplex_res_lib_paths = list.dirs(path = file.path(data_dir), full.names = TRUE, recursive = F)
@@ -29,7 +29,7 @@ read.summary_files_demultiplex = function(data_dir, summary_file_pattern="sample
       count_tab = utils::read.table(readcounts_file)
       colnames(count_tab) = c("file_name", 'read_count')
       count_tab$multiplexed_source = basename(mylib)
-      read_count_track.df=rbind(read_count_track.df, count_tab)
+      read_count_track.df = rbind(read_count_track.df, count_tab)
     }
 
   }
@@ -44,7 +44,7 @@ read.summary_files_demultiplex = function(data_dir, summary_file_pattern="sample
   read_count_track.df$type[grepl("_F\\.|_R1\\.", read_count_track.df$file_name)] = "demultiplexed_R1"
   read_count_track.df$type[grepl("_R\\.|_R2\\.", read_count_track.df$file_name)] = "demultiplexed_R2"
   read_count_track.df$type[grepl("unknown", read_count_track.df$sample_id)] = paste0("unknown-", read_count_track.df$type[grepl("unknown", read_count_track.df$sample_id)])
-  read_count_track.df$type = factor(df$type, levels = rev(unique(read_count_track.df$type)))
+  read_count_track.df$type = factor(read_count_track.df$type, levels = rev(unique(read_count_track.df$type)))
 
   return(read_count_track.df)
 }
@@ -67,7 +67,7 @@ summary.summary_files_demultiplex = function(df){
   df$type = factor(df$type, levels = rev(unique(df$type)))
 
   #1. Overview of all reads
-  demultiplex_summary_df = aggregate(read_count ~ type, data = df, sum)
+  demultiplex_summary_df = stats::aggregate(read_count ~ type, data = df, sum)
 
   # only keep R1 info
   demultiplex_summary_df = demultiplex_summary_df[grepl("1$|FWD$", x = demultiplex_summary_df$type),]
@@ -78,7 +78,8 @@ summary.summary_files_demultiplex = function(df){
   # ==> so it also includes "good" reads, but in reverse complement from other step
   tot_raw_sum = sum(demultiplex_summary_df$read_count) / 2
 
-  demultiplex_summary_df = rbind(demultiplex_summary_df, data.frame(type ="raw_data_R1", read_count=tot_raw_sum))
+  demultiplex_summary_df = rbind(demultiplex_summary_df,
+                                 data.frame(type = "raw_data_R1", read_count = tot_raw_sum))
 
   # create use info column
   demultiplex_summary_df$type_use = "used_data"
@@ -88,7 +89,7 @@ summary.summary_files_demultiplex = function(df){
 
   # Create order for plotting
   demultiplex_summary_df$type = factor(demultiplex_summary_df$type,
-                                       levels=rev(c('raw_data_R1',
+                                       levels = rev(c('raw_data_R1',
                                                     "unknown_R1",
                                                     "unknown-demultiplexed_R1",
                                                     "unknown-round1-1",
