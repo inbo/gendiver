@@ -1,7 +1,6 @@
 #########################
 ### Utility functions ###
 #########################
-# not for pkg-users
 
 extract_sample_name = function(x){
   # note the loose regex (*) for third digit -> extraction date can be missing
@@ -31,7 +30,7 @@ extract_filename_info = function(file_name, sample_id_regex){
 #' @param file_id Path or URL (Google Drive) to a tabular file that can be read with \link[utils]{read.table}
 #' @param ... See \link[utils]{read.table}
 #'
-#' @returns Dataframe with MUMU log
+#' @returns Dataframe
 #' @export
 #'
 #' @examples
@@ -49,3 +48,36 @@ read.table_gdrive =  function(file_id, ...){
   }
   return(out)
 }
+
+
+#' Try to read a FASTX file from File Path or google Drive
+#'
+#' At INBO Google Drive is the main platform for RDM. This function reads FASTX files into \link[Biostrings]{DNAStringSet} from Google Drive link
+#' (right-click file, "Share", "Copy link")
+#'
+#' @param file_id Path or URL (Google Drive) to a FASTX file that can be read with \link[Biostrings]{readDNAStringSet}
+#' @param tempf File path for downloaded data (default=\link[base]{tempfile})
+#' @param ... See \link[Biostrings]{readDNAStringSet}
+#'
+#' @returns \link[Biostrings]{DNAStringSet}
+#' @export
+#'
+#' @examples
+#' #To add
+read.fastx_gdrive =  function(file_id, tempf=tempfile() , ...){
+  if (file.exists(file_id)){
+    message('Reading from File Path')
+    f_path = file_id
+  } else {
+    message('Reading from Google Drive')
+    f_path= tempf
+    googledrive::drive_download(
+      file= file_id,
+      path=f_path)
+
+  }
+  out = Biostrings::readDNAStringSet(f_path, ...)
+  return(out)
+}
+
+
