@@ -21,7 +21,8 @@ Imports:
     ggplot2,
     stringr,
     data.table,
-    googledrive
+    googledrive,
+    Biostrings
 RoxygenNote: 7.3.1
 Suggests: 
     testthat (>= 3.0.0)

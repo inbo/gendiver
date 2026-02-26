@@ -4,12 +4,18 @@
 \alias{read.summary_files_demultiplex}
 \title{Read per-sample readcounts from summary files after demultiplexing job}
 \usage{
-read.summary_files_demultiplex(data_dir, summary_file_pattern = "sample.txt")
+read.summary_files_demultiplex(
+  data_dir,
+  summary_file_pattern = "_stats.tsv",
+  legacy_mode = F
+)
 }
 \arguments{
 \item{data_dir}{File path to the `02_demultiplex/` dir}
 
-\item{summary_file_pattern}{Pattern to recognize summary files (default="sample.txt)}
+\item{summary_file_pattern}{Pattern to recognize summary files (default="_stats.tsv).}
+
+\item{legacy_mode}{Enable to read legacy "readcounts_per_sample.txt" files (default=FALSE)}
 }
 \value{
 Dataframe with read counts per sample

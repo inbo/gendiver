@@ -65,9 +65,11 @@ write.barcode_files = function(lab_sample_sheet, out_dir, LIB_COL=1){
   target_col = lab_sample_sheet[,c(LIB_COL)]
 
   for (lib_code_i in unique(target_col)){
-    print(lib_code_i)
 
     lib_data = lab_sample_sheet[target_col == lib_code_i , ]
+
+    cat(paste0("\n",lib_code_i, ": ", nrow(lib_data), " samples"))
+
     outtable = lib_data[, c("UNIQUE_SAMPLE_CODE",
                             "SEQUENCE_BARCODE_F_PRIMER",
                             "SEQUENCE_BARCODE_R_PRIMER")]

@@ -12,7 +12,7 @@ read.table_gdrive(file_id, ...)
 \item{...}{See \link[utils]{read.table}}
 }
 \value{
-Dataframe with MUMU log
+Dataframe
 }
 \description{
 At INBO Google Drive is the main platform for RDM. This functions can read CSV tables from Google Drive link
