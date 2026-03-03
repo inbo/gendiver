@@ -157,6 +157,7 @@ parse_tax_string = function(x, is_pred=F){
 #' @param read_supported_only Only return bootstrap supported annotations (default=TRUE)
 #' @param add_source Add basename of `sintax_path` to output dataframe (default=FALSE)
 #' @param clean_tax Try to remove non-informative text in taxonomic annotations (default=FALSE)
+#' @param add_custom  Add a custom taxonomy-level between Phylum and Class with common names for basic quality control (INBO specific) (default=FALSE)
 #'
 #' @returns Dataframe with taxonomy information (columns) per OTU (rows)
 #' @export
