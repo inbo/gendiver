@@ -35,12 +35,14 @@ read.taxonomy_obitools3 = function(tax_table_path){
 #' @examples
 #' #To add
 select.taxonomy_obitools3 = function(tax_df, min_BEST_ID=1, max_BEST_ID=1){
-  #only keep taxa with BEST_ID==1
-  print(paste("using min_BEST_ID =", min_BEST_ID, "and max_BEST_ID =", max_BEST_ID))
+
+  # Filter taxa based on BEST_IDENTITY
   filt_nr_asv = nrow(tax_df[! (max_BEST_ID >= tax_df$BEST_IDENTITY & tax_df$BEST_IDENTITY >= min_BEST_ID),])
   tot_nr_asv = nrow(tax_df)
 
-  print(paste0("This removes ", filt_nr_asv," (", round(filt_nr_asv/tot_nr_asv*100, 2),"%) ASVs"))
+  message(paste0(
+    "[INFO] Using min_BEST_ID = ", min_BEST_ID, " and max_BEST_ID = ", max_BEST_ID,
+    "\n[INFO] This removes ", filt_nr_asv," (", round(filt_nr_asv/tot_nr_asv*100, 2),"%) OTUs"))
 
   table.filt=tax_df[max_BEST_ID >= tax_df$BEST_IDENTITY & tax_df$BEST_IDENTITY >= min_BEST_ID,]
 
@@ -48,19 +50,8 @@ select.taxonomy_obitools3 = function(tax_df, min_BEST_ID=1, max_BEST_ID=1){
   taxonomy<-table.filt[,c("phylum_name", "class_name", "order_name", "family_name", "genus_name", "species_name")]
   colnames(taxonomy) = c("phylum", "class", "order", "family", "genus", "species")
 
-  taxonomy$custom_taxon = taxonomy$class
-  taxonomy$custom_taxon[taxonomy$genus == "Homo"] = "Human"
-  taxonomy$custom_taxon[taxonomy$custom_taxon == "Mammalia"] = "non-human mammal"
-  taxonomy$custom_taxon[taxonomy$custom_taxon == "Aves"] = "Bird"
-  taxonomy$custom_taxon[taxonomy$custom_taxon == "Actinopteri"] = "Fish"
-  taxonomy$custom_taxon[taxonomy$custom_taxon == "Hyperoartia"] = "Fish"
-  taxonomy$custom_taxon[taxonomy$custom_taxon == "Amphibia"] = "Amphibians"
-  taxonomy$custom_taxon[is.na(taxonomy$custom_taxon)]="Other"
-
-  # change NA names to unclassified
-  taxonomy_tab = propagate.unclassified_taxonomy(taxonomy)
-
-  taxonomy_tab = taxonomy_tab[, c("phylum","custom_taxon", "class", "order", "family", "genus", "species")]
+  # Add custom taxonomy and propagate taxonomy to NA
+  taxonomy_tab = add_custom_taxonomy(taxonomy, fillNA=TRUE)
 
   return(taxonomy_tab)
 }
@@ -82,6 +73,33 @@ pull.taxonomy_obitools3 = function(tax_table_path, min_BEST_ID=1, max_BEST_ID=1)
   tax_df = gendiver::read.taxonomy_obitools3(tax_table_path)
   tax_out = gendiver::select.taxonomy_obitools3(tax_df, min_BEST_ID, max_BEST_ID)
   return(tax_out)
+}
+
+# Add custom taxonomy
+add_custom_taxonomy = function(taxonomy_df, fillNA=F){
+  exp_cols = c("phylum", "class", "order", "family", "genus", "species")
+  if (sum( ! exp_cols %in% base::colnames(taxonomy_df)) != 0) {
+    warning(paste("Colnames not expected taxonomy-format:", paste(exp_cols, collapse = ",")))
+    return(taxonomy_df)
+  }
+  taxonomy_df$custom_taxon = taxonomy_df$class
+  taxonomy_df$custom_taxon[taxonomy_df$genus == "Homo"] = "Human"
+  taxonomy_df$custom_taxon[taxonomy_df$custom_taxon == "Mammalia"] = "non-human mammal"
+  taxonomy_df$custom_taxon[taxonomy_df$custom_taxon == "Aves"] = "Bird"
+  taxonomy_df$custom_taxon[taxonomy_df$custom_taxon == "Actinopteri"] = "Fish"
+  taxonomy_df$custom_taxon[taxonomy_df$custom_taxon == "Hyperoartia"] = "Fish"
+  taxonomy_df$custom_taxon[taxonomy_df$custom_taxon == "Amphibia"] = "Amphibians"
+  taxonomy_df$custom_taxon[is.na(taxonomy_df$custom_taxon)]="Other"
+
+  if (fillNA){
+    # change NA names to unclassified
+    taxonomy_df = propagate.unclassified_taxonomy(taxonomy_df)
+    }
+
+  p_i = which(colnames(taxonomy_df) == "phylum")
+  taxonomy_df = taxonomy_df[, c(1:p_i, length(colnames(taxonomy_df)), (p_i+1):(length(colnames(taxonomy_df))-1))]
+
+  return(taxonomy_df)
 }
 
 # Clean MIDORI2 raw
@@ -145,7 +163,7 @@ parse_tax_string = function(x, is_pred=F){
 #'
 #' @examples
 #' #To add
-read.taxonomy_sintax = function(sintax_path, read_supported_only=TRUE, add_source=FALSE, clean_tax=FALSE){
+read.taxonomy_sintax = function(sintax_path, read_supported_only=TRUE, add_source=FALSE, clean_tax=FALSE, add_custom=F){
   # Read input
   rtab = read.table_gdrive(
     sintax_path, sep = "\t", header = F,
@@ -164,7 +182,11 @@ read.taxonomy_sintax = function(sintax_path, read_supported_only=TRUE, add_sourc
 
   if (clean_tax) {tax_supp = clean_taxonomies(tax_supp)}
   if (add_source) {tax_supp$SOURCE_FILE = basename(sintax_path)}
-
+  if (add_custom){
+    # Add full names
+    colnames(tax_supp) = c("kingdom", "phylum", "class", "order", "family", "genus", "species")
+    tax_supp = add_custom_taxonomy(tax_supp)
+  }
   tax_supp = as.data.frame(tax_supp)
   # Add OTU-IDs back to data (and remove possible ';size=' info)
   rownames(tax_supp) = gsub(";size=\\d*", "" , rtab$QUERY_LABEL)
