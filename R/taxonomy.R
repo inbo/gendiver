@@ -35,12 +35,14 @@ read.taxonomy_obitools3 = function(tax_table_path){
 #' @examples
 #' #To add
 select.taxonomy_obitools3 = function(tax_df, min_BEST_ID=1, max_BEST_ID=1){
-  #only keep taxa with BEST_ID==1
-  print(paste("using min_BEST_ID =", min_BEST_ID, "and max_BEST_ID =", max_BEST_ID))
+
+  # Filter taxa based on BEST_IDENTITY
   filt_nr_asv = nrow(tax_df[! (max_BEST_ID >= tax_df$BEST_IDENTITY & tax_df$BEST_IDENTITY >= min_BEST_ID),])
   tot_nr_asv = nrow(tax_df)
 
-  print(paste0("This removes ", filt_nr_asv," (", round(filt_nr_asv/tot_nr_asv*100, 2),"%) ASVs"))
+  message(paste0(
+    "[INFO] Using min_BEST_ID = ", min_BEST_ID, " and max_BEST_ID = ", max_BEST_ID,
+    "\n[INFO] This removes ", filt_nr_asv," (", round(filt_nr_asv/tot_nr_asv*100, 2),"%) OTUs"))
 
   table.filt=tax_df[max_BEST_ID >= tax_df$BEST_IDENTITY & tax_df$BEST_IDENTITY >= min_BEST_ID,]
 
@@ -75,7 +77,7 @@ pull.taxonomy_obitools3 = function(tax_table_path, min_BEST_ID=1, max_BEST_ID=1)
 
 # Add custom taxonomy
 add_custom_taxonomy = function(taxonomy_df, fillNA=F){
-  exp_cols = c("kingdom", "phylum", "class", "order", "family", "genus", "species")
+  exp_cols = c("phylum", "class", "order", "family", "genus", "species")
   if (sum( ! exp_cols %in% base::colnames(taxonomy_df)) != 0) {
     warning(paste("Colnames not expected taxonomy-format:", paste(exp_cols, collapse = ",")))
     return(taxonomy_df)
