@@ -8,7 +8,8 @@ read.taxonomy_sintax(
   sintax_path,
   read_supported_only = TRUE,
   add_source = FALSE,
-  clean_tax = FALSE
+  clean_tax = FALSE,
+  add_custom = F
 )
 }
 \arguments{
@@ -19,6 +20,8 @@ read.taxonomy_sintax(
 \item{add_source}{Add basename of `sintax_path` to output dataframe (default=FALSE)}
 
 \item{clean_tax}{Try to remove non-informative text in taxonomic annotations (default=FALSE)}
+
+\item{add_custom}{Add a custom taxonomy-level between Phylum and Class with common names for basic quality control (INBO specific) (default=FALSE)}
 }
 \value{
 Dataframe with taxonomy information (columns) per OTU (rows)
