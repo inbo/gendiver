@@ -1,0 +1,309 @@
+---
+title: "Basic analysis Report"
+author: 'Nick Dillen'
+date: "`r Sys.Date()`"
+output:
+  pdf_document: 
+    toc: true
+    fig_caption: true
+  html_document:
+    code_folding: hide
+    highlight: haddock
+    number_sections: false
+    fig_caption: true
+    theme: sandstone
+    toc: true
+    toc_float: true
+urlcolor: blue
+params: 
+  SAMPLE_SHEET_URL: "URL-sample-sheet"
+  TAX_PATH: "TAX-result"
+  OTU_PATH: "OTU-table"
+  FASTA_PATH: "FASTA"
+  OUT_DIR: "."
+---
+
+# Operational Data report
+
+- Investigate basic statistic of combined **Clustering** and **Taxonomy** for a certain dataset
+- Interpret and evaluate **non-experiment** samples/amplicons
+
+## Input data
+
+- Input lab sample sheet: `r params$SAMPLE_SHEET_URL`
+- Input OTU table: `r params$OTU_PATH`
+- Input Taxonomy file: `r params$TAX_PATH`
+
+```{r read-param, echo=FALSE, eval=T, message=F}
+library(gendiver)
+library(knitr)
+library(ggplot2)
+library(phyloseq)
+library(Biostrings)
+
+googlesheets4::gs4_auth(T)
+googledrive::drive_auth(T)
+
+otu_tab_path = params$OTU_PATH
+tax_tab_path = params$TAX_PATH
+fasta_path = params$FASTA_PATH
+
+# Check file location
+if (! file.exists(otu_tab_path)) {
+  otu_tab_path = googledrive::drive_get(otu_tab_path)
+  otu_tab_path = otu_tab_path$name
+}
+
+if (! file.exists(tax_tab_path)) {
+  tax_tab_path = googledrive::drive_get(tax_tab_path)
+  tax_tab_path = tax_tab_path$name
+}
+
+if (! file.exists(fasta_path)) {
+  fasta_path = googledrive::drive_get(fasta_path)
+  fasta_path = fasta_path$name
+}
+
+PROJ_NAME = gsub("\\..*", "", basename(otu_tab_path))
+SS_NAME = googledrive::drive_get(params$SAMPLE_SHEET_URL)$name
+```
+
+- Used lab sample sheet: `r SS_NAME`
+- Used OTU table: `r basename(otu_tab_path)`
+- Used Taxonomy file: `r basename(tax_tab_path)`
+- Used sequence file: `r basename(fasta_path)`
+
+
+\break
+
+# Read data
+
+```{r read.opdata, echo=T}
+
+sample_sheet = read.sample_sheet_lab(params$SAMPLE_SHEET_URL)
+
+if (grepl("obitools", otu_tab_path, ignore.case = T)){
+  otu_df <- read.otu_table_obitools3(params$OTU_PATH)
+} else {
+  #Read OTU table and tax table, and explore data
+  otu_df <- read.otu_table_vsearch(params$OTU_PATH)
+}
+
+if (grepl("sintax", tax_tab_path, ignore.case = T)){
+  tax_df =  read.taxonomy_sintax(params$TAX_PATH, clean_tax = T, add_custom = T)
+} else if(grepl("idtaxa", tax_tab_path, ignore.case = T)){
+  #Read OTU table and tax table, and explore data
+  tax_df <- read.taxonomy_idtaxa(params$TAX_PATH)
+} else if(grepl("ecotag", tax_tab_path, ignore.case = T)){
+  #Read OTU table and tax table, and explore data
+  tax_df <- read.taxonomy_obitools3(params$TAX_PATH)
+} 
+
+seqs = read.fastx_gdrive(params$FASTA_PATH)
+```
+
+# Basic exploration
+
+- This is (for now) hardcoded for SINTAX and VSEARCH
+
+```{r, fig.width=8, echo=F}
+
+## BASIC EXPLORATION PLOTS
+annot_overview=colSums(!is.na(tax_df))
+annot_overview = annot_overview[names(annot_overview) != "custom_taxon"]
+annot_overview = c(nrow(tax_df), annot_overview)
+names(annot_overview)[1] = 'TOTAL'
+print(annot_overview, row.names = F)
+
+barplot(annot_overview, main="Taxonomy assignments overview", ylab = "Number of OTUs")
+
+asv_lengths = width(seqs)
+
+hist(asv_lengths, breaks = 100, main = "OTU seq length", sub=basename(otu_tab_path) ,xlab = "Length (bp)")
+
+
+reads_length = data.frame("reads"=rowSums(otu_df),
+                             "length"=asv_lengths, row.names = row.names(tax_df), width=12)
+len_reads.df = aggregate(reads~length, reads_length, sum)
+
+plot(len_reads.df, main = "Per ASV-length the number of reads",
+     sub=basename(otu_tab_path), xlab = "ASV length")
+
+plot(cbind(len_reads.df$length, cumsum(len_reads.df$reads)), main = "Per ASV-length the number of reads",
+     sub=basename(otu_tab_path), xlab = "ASV length", ylab="Cumulative sum reads")
+
+hist(rowSums(otu_df), breaks = 100, main = "Per taxa reads", sub=basename(otu_tab_path), 
+     xlab = "Total number of reads")
+
+
+hist(colSums(otu_df), breaks = 100, main = "Per sample reads", sub=basename(otu_tab_path),
+     xlab = "Total number of reads")
+```
+
+
+# Make Phyloseq object
+
+- To work with Phyloseq, check the documentation:
+  - https://joey711.github.io/phyloseq/
+
+```{r}
+# Make phyloseq object
+ps = phyloseq(
+  otu_table(otu_df, taxa_are_rows = TRUE),
+  tax_table(as.matrix(tax_df)),
+  sample_data(sample_sheet),
+  seqs
+)
+
+ps 
+```
+
+## Check CONTROL samples/amplicons
+
+```{r}
+type.tb = table(sample_data(ps)$ANALYSE_TYPE)
+type.tb
+
+controls = names(type.tb)[names(type.tb) != "Metabarcoding"]
+
+control_plots = as.list(controls, controls)
+names(control_plots) = controls
+
+fH = max(type.tb[controls])*0.5
+```
+
+```{r, fig.width=20, fig.height=fH}
+for (typei in controls){
+  ps_control = subset_samples(ps, ANALYSE_TYPE==typei)
+  ps_control = prune_taxa(rowSums(otu_table(ps_control)) > 1, ps_control)
+  ps_control = tax_glom(ps_control, "species")
+  ps_control
+  
+  # # create custom color
+  txs = taxa_sums(ps_control)
+  topx=20
+  txs_keep = names(txs[order(txs, decreasing = T)][1:min(length(txs),topx)])
+  txd = as.data.frame(tax_table(ps_control))
+  txd$top_species = NA
+  txd[txs_keep, "top_species"] = txd[txs_keep, "species"]
+
+  tax_table(ps_control) = tax_table(as.matrix(txd))
+  
+  p_overview_control = plot_bar(ps_control, fill = "custom_taxon", x = "INDIVIDUAL") + 
+  facet_grid(rows = vars(TECHNICAL_REPLICATE))+
+  ggtitle(paste(typei, "- overview"), subtitle = PROJ_NAME)
+  print(p_overview_control)
+  
+  p_overview_control_species = plot_bar(ps_control, fill = "top_species", x = "INDIVIDUAL") + 
+  facet_grid(rows = vars(TECHNICAL_REPLICATE))+
+  ggtitle(paste(typei, "- top",topx,"taxa"), subtitle = PROJ_NAME)
+  print(p_overview_control_species)
+}
+```
+
+
+## Overview
+
+```{r MB-samples-overview}
+### Inspect Samples ###
+ps_samples = subset_samples(ps, ANALYSE_TYPE_CODE=="999")
+
+# Look at top x ASVs (reduce for taxglom)
+x_cutoff= 5000
+topX = names(taxa_sums(ps_samples)[order(taxa_sums(ps_samples), decreasing = T)][1:min(ntaxa(ps_samples) ,x_cutoff)])
+
+ps_topX = prune_taxa(topX, ps_samples)
+
+ps_topX = tax_glom(ps_topX, "custom_taxon")
+```
+
+- Remove control samples
+- Only look at top `r x_cutoff` top abundant ASVs (reads) to reduce data -> this amounts to `r round(sum(taxa_sums(ps_topX))/sum(taxa_sums(ps_samples)) *100, 2)`% of data
+- group on custom taxonomy
+
+```{r, fig.height=25, fig.width=30, warning=F}
+normalized_ps = transform_sample_counts(ps_topX, function(OTU) OTU/sum(OTU) * 100)
+  
+plot_bar(normalized_ps, fill = "custom_taxon", x="INDIVIDUAL") + 
+  # coord_flip() +
+  facet_grid(rows = vars(TECHNICAL_REPLICATE)) + 
+  ggtitle(paste(PROJ_NAME)) + ylab('Relative abundance (%)') +  theme(legend.position = "bottom")
+
+```
+
+
+# Taxonomy based clustering metrics
+
+We can use taxonomy information to assess clustering.
+
+- Note that taxonomy is often not real "Ground-Truth":
+  - **Reference databases** have mistakes
+  - Taxonomic annotations **tool** can make false positive/negative taxonomic annotations
+  - **Noisy data** will lead to increased false positive annotations, picking up noise as signal. (=> data not enough filtered)
+  - Target **amplicon** might not resolve into species, or have intra-species variation.
+
+
+```{r}
+
+ps_select = prune_taxa(topX, ps_samples)
+pstab = as.data.frame(tax_table(ps_select))
+
+taxdata = data.frame()
+minprint = 15
+
+pl_list = list()
+tb_list= list()
+
+for (tax_rank in colnames(pstab)){
+  
+  if (grepl("custom", tax_rank)){next}
+  
+  # cat(paste0("### ", tax_rank,"\n"))
+  
+  
+  ddi = data.frame(table(pstab[[tax_rank]]))
+  colnames(ddi) = c("Taxonomy", "nr_members")
+  
+  top10 = ddi[order(ddi$nr_members, decreasing = T)[1:min(minprint,nrow(ddi))],]
+  
+  if (nrow(ddi) < minprint){
+    myc = "Taxa with number of members"
+  } else {
+    myc = paste("Top",minprint,"taxa with most members")
+  }
+  
+  kbt = kable(top10, caption = myc, col.names = c(tax_rank, "nr_members"),
+              row.names = FALSE, )
+  
+  tb_list[[tax_rank]] = kbt
+  
+  di = data.frame(table(table(pstab[[tax_rank]])))
+  di$Var1 = as.numeric(as.character(di$Var1))
+  colnames(di) = c("Members", "Taxa")
+  
+  if (nrow(di) > minprint && (sum(di$Taxa[1:5]) > sum(tail(di$Taxa)))){
+    di$Members[di$Members > 100] = 101
+    pl=   ggplot(data=di, aes(x = Members, y=Taxa)) + geom_col() + 
+      ggtitle(tax_rank) + xlab("Members per Taxa (100+ is grouped)") +
+      ylab("Taxa (freq)")
+    
+    pl_list[[tax_rank]] = pl
+  } 
+  
+  
+}
+
+
+```
+
+
+```{r}
+tb_list
+```
+
+
+
+```{r}
+pl_list
+```
+
