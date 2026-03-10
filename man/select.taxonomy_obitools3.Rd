@@ -4,7 +4,12 @@
 \alias{select.taxonomy_obitools3}
 \title{Filter ASV data for eDNA-water (12S primers)}
 \usage{
-select.taxonomy_obitools3(tax_df, min_BEST_ID = 1, max_BEST_ID = 1)
+select.taxonomy_obitools3(
+  tax_df,
+  min_BEST_ID = 1,
+  max_BEST_ID = 1,
+  fillNA = TRUE
+)
 }
 \arguments{
 \item{tax_df}{Dataframe of (obitools3) taxonomy table (see \link[gendiver]{read.taxonomy_obitools3})}
@@ -12,6 +17,8 @@ select.taxonomy_obitools3(tax_df, min_BEST_ID = 1, max_BEST_ID = 1)
 \item{min_BEST_ID}{Minimum identity match for ASV to be retained. Default=1, retain only ASVs with perfect match to RefDB}
 
 \item{max_BEST_ID}{Maximum identity match for ASV to be retained. Default=1, retain only ASVs with perfect match to RefDB}
+
+\item{fillNA}{See \link[gendiver]{propagate.unclassified_taxonomy} (default=TRUE)}
 }
 \value{
 Dataframe with ASV selection
