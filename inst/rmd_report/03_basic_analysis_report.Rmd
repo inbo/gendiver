@@ -89,6 +89,7 @@ SS_NAME = googledrive::drive_get(params$SAMPLE_SHEET_URL)$name
 sample_sheet = read.sample_sheet_lab(params$SAMPLE_SHEET_URL)
 
 seqs = read.fastx_gdrive(params$FASTA_PATH)
+names(seqs) = gsub(";size=\\d*", "", names(seqs))
 
 if (grepl("obitools", otu_tab_path, ignore.case = T)){
   otu_df <- read.otu_table_obitools3(params$OTU_PATH)
@@ -109,7 +110,7 @@ if (grepl("sintax", tax_tab_path, ignore.case = T)){
   tax_df_raw <- read.taxonomy_obitools3(params$TAX_PATH)
   tax_df = select.taxonomy_obitools3(tax_df_raw, min_BEST_ID = 1, fillNA = F)
   
-  names(seqs) = gsub(";size=\\d*", "", names(seqs))
+  
   # seqs = seqs[row.names(tax_df)]
   TAX_TOOL="OBITOOLS3"
 
