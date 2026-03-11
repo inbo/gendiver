@@ -28,13 +28,14 @@ read.taxonomy_obitools3 = function(tax_table_path){
 #' @param tax_df Dataframe of (obitools3) taxonomy table (see \link[gendiver]{read.taxonomy_obitools3})
 #' @param min_BEST_ID Minimum identity match for ASV to be retained. Default=1, retain only ASVs with perfect match to RefDB
 #' @param max_BEST_ID Maximum identity match for ASV to be retained. Default=1, retain only ASVs with perfect match to RefDB
+#' @param fillNA See \link[gendiver]{propagate.unclassified_taxonomy} (default=TRUE)
 #'
 #' @returns Dataframe with ASV selection
 #' @export
 #'
 #' @examples
 #' #To add
-select.taxonomy_obitools3 = function(tax_df, min_BEST_ID=1, max_BEST_ID=1){
+select.taxonomy_obitools3 = function(tax_df, min_BEST_ID=1, max_BEST_ID=1, fillNA=TRUE){
 
   # Filter taxa based on BEST_IDENTITY
   filt_nr_asv = nrow(tax_df[! (max_BEST_ID >= tax_df$BEST_IDENTITY & tax_df$BEST_IDENTITY >= min_BEST_ID),])
@@ -51,7 +52,7 @@ select.taxonomy_obitools3 = function(tax_df, min_BEST_ID=1, max_BEST_ID=1){
   colnames(taxonomy) = c("phylum", "class", "order", "family", "genus", "species")
 
   # Add custom taxonomy and propagate taxonomy to NA
-  taxonomy_tab = add_custom_taxonomy(taxonomy, fillNA=TRUE)
+  taxonomy_tab = add_custom_taxonomy(taxonomy, fillNA=fillNA)
 
   return(taxonomy_tab)
 }
@@ -115,6 +116,7 @@ clean_taxonomies = function(tabraw){
 
   out = as.data.frame(tabraw)
   out[out == "NA"] = NA
+  out[out == ""] = NA
 
   return(out)
 }

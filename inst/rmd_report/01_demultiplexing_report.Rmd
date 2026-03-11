@@ -1,0 +1,366 @@
+---
+title: "Demultiplex Report"
+author: 'Nick Dillen'
+date: "`r Sys.Date()`"
+output:
+  pdf_document: 
+    toc: true
+    fig_caption: true
+  html_document:
+    code_folding: hide
+    highlight: haddock
+    number_sections: false
+    fig_caption: true
+    theme: sandstone
+    toc: true
+    toc_float: true
+urlcolor: blue
+params: 
+  SAMPLE_SHEET_URL: "URL-sample-sheet"
+  DEMULTIPLEX_RESULT_PATH: "PATH-to-02_demultiplex"
+  OUT_DIR: "output-dir-supplements"
+---
+
+```{r read-param, echo=FALSE, eval=T}
+SS_URL=params$SAMPLE_SHEET_URL
+data_dir = params$DEMULTIPLEX_RESULT_PATH
+
+print(params)
+```
+
+
+```{r prep, echo=F, message=F}
+library(knitr)
+library(gendiver)
+library(stringr)
+library(ggplot2)
+
+googlesheets4::gs4_auth(T)
+
+# -----------------------------------------------------
+sample_sheet = read.sample_sheet_lab(SS_URL)
+PROJ_NAME = basename(dirname(data_dir))
+
+```
+
+\break
+
+# `r unique(sample_sheet$RUN)`
+
+# Demultiplexed reads QC
+
+```{r read.demultiplexed, echo=F}
+read_count_track.df = read.summary_files_demultiplex(data_dir)
+# read_count_track.df = read.summary_files_demultiplex(data_dir, summary_file_pattern = "_sample.txt", legacy_mode = T)
+
+# only keep R1 data
+read_count_track.df = read_count_track.df[grepl("1$|FWD$", read_count_track.df$type),]
+
+# add total raw reads:
+# because demultiplexing is done in 2 steps, unk+res is 2x raw
+tot_reads_multiplexed = sum(read_count_track.df$read_count) / 2
+
+```
+
+## Demultiplexing success TOTAL
+
+- Demultiplexing success complete run-level
+
+```{r echo=F}
+total_demultiplexed=sum(read_count_track.df$read_count[! read_count_track.df$sample_id == "unknown"])
+demultiplex_success_percent = round(total_demultiplexed/(tot_reads_multiplexed)*100, digits=2)
+```
+
+- Demultiplexing success for the complete run is:  `r demultiplex_success_percent`%
+- This corresponds to `r total_demultiplexed` demultiplexed reads out of `r tot_reads_multiplexed` total multiplexed reads
+
+
+## Demultiplexing success per POOL
+
+- Demultiplexing success POOL
+
+```{r demultiplex-per-pool, fig.height=6, fig.width=16, echo=F}
+
+demultiplex_summary_df_pp = aggregate(read_count ~ type + multiplexed_source, data = read_count_track.df, sum)
+
+# add total raw reads per plate:
+# because demultiplexing is done in 2 steps, unk+res is 2x raw
+tot_raw_sum_pp = aggregate(read_count ~ multiplexed_source, data = demultiplex_summary_df_pp, sum)
+tot_raw_sum_pp$read_count = tot_raw_sum_pp$read_count/2
+tot_raw_sum_pp$type = "raw_data_R1"
+demultiplex_summary_df_pp = rbind(demultiplex_summary_df_pp, tot_raw_sum_pp)
+
+# create use info column
+demultiplex_summary_df_pp$type_use = "used_data"
+demultiplex_summary_df_pp$type_use[grepl(pattern = "unknown|discard|unassembled|5prime|Undetermined", x = demultiplex_summary_df_pp$type )] = "discarted_data"
+
+# per plate demultiplexing success
+pp_demu= demultiplex_summary_df_pp[demultiplex_summary_df_pp$type == "demultiplexed_R1",c("multiplexed_source", "read_count")]
+pp_tot_raw = demultiplex_summary_df_pp[demultiplex_summary_df_pp$type == "raw_data_R1",c("multiplexed_source", "read_count")]
+
+demultiplex_success_pp = merge(pp_demu, pp_tot_raw, by = 1)
+demultiplex_success_pp$demultiplex_success_percent = demultiplex_success_pp$read_count.x/demultiplex_success_pp$read_count.y *100
+
+demultiplex_summary_df_pp$type = factor(
+  demultiplex_summary_df_pp$type, levels=c('raw_data_R1',"unknown_R1","unknown-round1-1","unknown-round1bis-1",'unknown_round2_1',"demultiplexed_R1"))
+
+p_overview_data_pp = demultiplex_summary_df_pp[demultiplex_summary_df_pp$type_use == "used_data",]
+p_overview_data_pp = merge(p_overview_data_pp, demultiplex_success_pp[, c(1,4)], by = "multiplexed_source")
+p_overview_data_pp$demultiplex_success_percent[p_overview_data_pp$type == "raw_data_R1"] = 100
+
+p_demult_overview_pp = ggplot(data=p_overview_data_pp, aes(x=type, y=read_count, fill=type)) +
+  geom_col() + facet_grid(~multiplexed_source) +
+  geom_text(
+    aes(label = paste0(round(demultiplex_success_percent, 2), "%") ),
+    position = position_dodge(width = 0.5), 
+    vjust = -1,
+  ) + 
+  scale_x_discrete(labels = NULL, breaks = NULL) + labs(x = NULL) +
+  ggtitle(paste0(PROJ_NAME, " - Overview of demultiplexing per pool"), subtitle = paste0("Combined demultiplexing success = ", demultiplex_success_percent, "%"))
+
+p_demult_overview_pp
+
+```
+
+
+## Demultiplexing success per SAMPLE
+
+Plotting the demultiplexed read_counts per sample, per POOL
+
+- Data is ordered on POOL and then on read_count
+- Empty samples/amplicon are in front per POOL
+
+```{r echo=FALSE}
+sfigh = min( 199, nrow(read_count_track.df)*0.2)
+rc.df = read_count_track.df[read_count_track.df$type %in% c("demultiplexed_R1", "unknown_round2_1"),]
+rownames(rc.df) = gsub("_R1.fastq.gz" , "", rc.df$file_name)
+rc.df=rc.df[,"read_count", drop=F]
+sample_sheet=merge(sample_sheet, rc.df, by = "row.names")
+row.names(sample_sheet) = sample_sheet$Row.names
+sample_sheet = sample_sheet[-1]
+```
+
+
+```{r fig.height=sfigh, fig.width=25, echo=F}
+
+sample_order_filtered=sample_sheet$UNIQUE_SAMPLE_CODE[order(sample_sheet$LIBRARY_CODE, sample_sheet$read_count)]
+p_summary = summary(sample_sheet$read_count)
+
+p_demult_per_sample = ggplot(data=sample_sheet, aes(x=UNIQUE_SAMPLE_CODE, y=read_count, fill=LIBRARY_CODE)) +
+  geom_bar(stat="identity", position = "dodge") + coord_flip() + 
+  geom_hline(yintercept = p_summary) +
+  annotate("text", x=length(unique(sample_sheet$UNIQUE_SAMPLE_CODE))-1, y=p_summary, angle = 90, label=names(p_summary)) +
+  ggtitle(paste0(PROJ_NAME, " - Demultiplexed success per sample"),
+          subtitle = paste(round(p_summary), names(p_summary), sep = "  :    ", collapse = "\n")) +
+  scale_x_discrete(sample_order_filtered, limits = rev(sample_order_filtered), , name="UNIQUE_SAMPLE_CODE")
+p_demult_per_sample
+```
+
+
+- This might be quite small for the number of samples/amplicons
+- Check the generated supplement `.pdf`
+
+
+```{r echo=F}
+ggfname=paste0("demultiplex-QC-report-supplement-fig.pdf")
+ggoutp = file.path(params$OUT_DIR,ggfname)
+print(ggfname)
+ggsave(ggoutp, p_demult_per_sample, width = 25, height = sfigh, limitsize = FALSE)
+```
+
+
+## Demultiplexing success per PLATE (heatmap)
+
+```{r plate-prep, echo=F}
+sample_sheet$PLATE = paste0(sample_sheet$PRIMERS, ":", sample_sheet$PLATE_NOTES)
+sample_sheet$SAMPLE_TYPE = paste0(sample_sheet$PROJECT,":", sample_sheet$PRIMERS)
+sample_sheet$SAMPLE_TYPE[sample_sheet$ANALYSE_TYPE_CODE < 999 ] = sample_sheet$ANALYSE_TYPE[sample_sheet$ANALYSE_TYPE_CODE < 999]
+# sample_sheet$SAMPLE_TYPE[sample_sheet$read_count < 250] = NA
+sample_sheet$SAMPLE_TYPE = factor(sample_sheet$SAMPLE_TYPE)
+sample_sheet$LABEL = sample_sheet$ANALYSE_TYPE
+sample_sheet$LABEL[sample_sheet$ANALYSE_TYPE_CODE == 999] = ""
+sample_sheet$WELL_COLUMN = as.factor(sample_sheet$WELL_COLUMN)
+mycols = length(unique(sample_sheet$PRIMERS))
+
+# some extra for next chunk
+plh=length(unique(sample_sheet$PLATE_NOTES))
+```
+
+
+- Map readcounts per WELL to **check overall read distribution**
+
+```{r plate-layout-ident, echo=F, fig.width=15, fig.height=plh, warning=FALSE}
+pl_plot = ggplot2::ggplot( data=sample_sheet, ggplot2::aes(
+  x = .data$WELL_COLUMN, y=.data$WELL_ROW, fill=.data$SAMPLE_TYPE, alpha=.data$read_count, colour=.data$SAMPLE_TYPE)) +
+ggplot2::geom_tile(linewidth=0.2, colour="black") +
+  geom_text(aes(label = LABEL), colour="black", size=2, alpha=0.8) +
+ggplot2::facet_wrap(~.data$PLATE, ncol = 3, scales = "free") +
+ggplot2::scale_x_discrete(limits=factor(c(1:12))) +
+ggplot2::scale_y_discrete(limits=rev) +
+  scale_fill_discrete() + ggplot2::theme_classic()
+pl_plot
+```
+
+
+- Map **log10** readcounts per WELL to **highlight samples/amplicon with low read-counts**
+
+```{r plate-layout-log, echo=F, fig.width=15, fig.height=plh, warning=FALSE}
+pl_plot + scale_alpha_continuous(transform="log10")
+```
+
+## Readcounts per CONTROL
+
+```{r echo = F}
+type.tb = table(sample_sheet$ANALYSE_TYPE)
+type.tb
+
+controls = names(type.tb)[names(type.tb) != "Metabarcoding"]
+
+control_plots = as.list(controls, controls)
+names(control_plots) = controls
+
+for (typei in controls){
+  
+  cdata = sample_sheet[sample_sheet$ANALYSE_TYPE == typei,]
+  
+  p_summary = summary(cdata$read_count)
+  sample_order_filtered=cdata$UNIQUE_SAMPLE_CODE[order(cdata$LIBRARY_CODE, cdata$read_count)]
+
+  p_control = ggplot(data=cdata, aes(x=UNIQUE_SAMPLE_CODE, y=read_count)) +
+    geom_col() + coord_flip() +
+    ggtitle(paste0(PROJ_NAME, " - Demultiplexed reads: ",typei ),
+            subtitle = paste(round(p_summary), names(p_summary), sep = "  :    ", collapse = "\n")) +
+    scale_x_discrete(sample_order_filtered, limits = rev(sample_order_filtered), , name="UNIQUE_SAMPLE_CODE") + 
+    xlab("test")
+  
+  control_plots[[typei]] = p_control
+  
+}
+
+```
+
+
+```{r fig.width=10, echo=F}
+
+print(control_plots)
+
+```
+
+## Readcounts per barcode combination Per POOL
+
+Inspect if certain barcodes perform consistently better/worse (per POOL)
+
+```{r, echo=F}
+
+sample_sheet$BARCODE_F_PRIMER = factor(sample_sheet$BARCODE_F_PRIMER)
+bc_pool_df = aggregate(data=sample_sheet, read_count ~ WELL_ROW + WELL_COLUMN + LIBRARY_CODE + BARCODE_F_PRIMER + SAMPLE_TYPE, sum)
+
+bc_pool_df = merge(bc_pool_df, pp_demu, by.x = "LIBRARY_CODE", by.y = "multiplexed_source", suffixes = c("", "_pool"))
+bc_pool_df$percent = (bc_pool_df$read_count / bc_pool_df$read_count_pool )* 100
+# bc_order = aggregate(data=bc_pool_df, read_count~BARCODE_F_PRIMER, sum)
+# bc_order_x =  bc_order$BARCODE_F_PRIMER[order(bc_order$read_count)]
+
+
+bc_order = bc_pool_df[bc_pool_df$LIBRARY_CODE == unique(bc_pool_df$LIBRARY_CODE)[1],]
+bc_order_x =  bc_order$BARCODE_F_PRIMER[order(bc_order$percent)]
+
+p_bc_pool = ggplot(data=bc_pool_df, aes(x=BARCODE_F_PRIMER, y=percent, fill=LIBRARY_CODE)) + facet_grid(~LIBRARY_CODE) + coord_flip()+
+  geom_bar(stat="identity", position = "dodge") + 
+  ggtitle(paste0(PROJ_NAME, " - Demultiplexed success per BARCODE")) +
+  ylab("Percent of reads (%)")
+
+fh = length(bc_order_x)*0.15
+fw = length(unique(bc_pool_df$LIBRARY_CODE))*2
+```
+
+
+```{r fig.width=fw, fig.height=fh, echo=F}
+p_bc_pool
+```
+
+## BARCODE heatmap [EXPERIMENTAL]
+
+```{r, echo=F}
+barcode_heatmap = function(df, FUNY="mean", correct_nrsamples=T){
+  
+  if (correct_nrsamples){
+    # correct for numbe of samples per pool
+    dd = aggregate(data=df, BARCODE_F_PRIMER ~ LIBRARY_CODE, function(x){length(unique(x))})
+    colnames(dd) = c("LIBRARY_CODE", "xfactor"     )
+    dd$xfactor = dd$xfactor / max(dd$xfactor)
+    
+    df = merge(df, dd)
+    df$read_count = df$read_count * df$xfactor
+  }
+
+  
+  bc_df = aggregate(data=df, read_count ~ WELL_ROW + WELL_COLUMN + BARCODE_F_PRIMER, FUN=FUNY)
+  # Try to guess number of sets
+  check_sets = bc_df$BARCODE_F_PRIMER[bc_df$WELL_ROW == "A" & bc_df$WELL_COLUMN == "1"]
+  
+  bc_df$BC_SET = "SET_0"
+  
+  for (bc_i in 1:length(check_sets)){
+    bc_df$BC_SET[as.integer(bc_df$BARCODE_F_PRIMER) >= as.integer(check_sets[bc_i])] = paste0("SET_", bc_i)
+  }
+  
+  # bc_df$BC_SET[as.integer(as.character(bc_df$BARCODE_F_PRIMER)) > 250] = "SET_2"
+  
+  
+  bc_df$read_count[bc_df$read_count < 1] = NA
+  
+  pout = ggplot2::ggplot( data=bc_df, ggplot2::aes(
+    x = .data$WELL_COLUMN, y=.data$WELL_ROW, fill=.data$read_count)) +
+  ggplot2::geom_tile(linewidth=0.2, colour="black") +
+    geom_text(aes(label = BARCODE_F_PRIMER), colour="black", size=2.5) +
+  ggplot2::facet_wrap(~.data$BC_SET, ncol = 3, scales = "free") +
+  ggplot2::scale_x_discrete(limits=factor(c(1:12))) +
+  ggplot2::scale_y_discrete(limits=rev) +
+    scale_fill_continuous(type="viridis",
+      transform="identity",
+      na.value="white") +
+  ggplot2::theme_classic() + ggtitle(paste0("Read counts (",FUNY,") per barcode for all libraries combined")) +
+  labs(fill = paste0(FUNY," read count")) 
+  
+  return(pout)
+  
+}
+```
+
+- Check if pools have the same number of pooled amplicons
+- Depending on the summary statistic used this might bias the signal in the following plots!
+
+```{r barcode-layout, fig.width=12, fig.height=4}
+pt = table(sample_sheet$LIBRARY_CODE)
+
+# print(paste0("Removing ", names(pt[pt!=2*96]) , " from Barcode analysis"))
+
+kable(pt)
+
+# ssdf=sample_sheet[sample_sheet$LIBRARY_CODE %in% names(pt[pt==2*96]),]
+ssdf = sample_sheet
+
+barcode_heatmap(ssdf)
+barcode_heatmap(ssdf, "median")
+barcode_heatmap(ssdf, "min" )
+barcode_heatmap(ssdf, "max")
+
+```
+
+
+## SUPPLEMENT: Readcount-table for detailed investigation
+
+- If there are more run/data specific questions regarding the demultiplexing success please find the supplementary table and investigate as you like!
+
+```{r echo=FALSE}
+tfname=paste0("demultiplex-QC-report-supplement-table.csv")
+tfoutp = file.path(params$OUT_DIR, tfname)
+print(tfname)
+sample_sheet$LABEL=NULL
+write.table(sample_sheet, file = tfoutp, sep=",", row.names = F)
+```
+- You can read this in R with:
+
+```{r, eval=F}
+mydf = read.csv("demultiplex-QC-report-supplement-table.csv", header=T)
+```

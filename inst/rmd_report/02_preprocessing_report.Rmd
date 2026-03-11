@@ -1,0 +1,380 @@
+---
+title: "Pre-processing Report"
+author: 'Nick Dillen'
+date: "`r Sys.Date()`"
+output:
+  pdf_document: 
+    toc: true
+    fig_caption: true
+  html_document:
+    code_folding: hide
+    highlight: haddock
+    number_sections: false
+    fig_caption: true
+    theme: sandstone
+    toc: true
+    toc_float: true
+urlcolor: blue
+params: 
+  SAMPLE_SHEET_URL: "URL-sample-sheet"
+  PREPROCESS_RESULT_PATH: "PATH-to-03_pre_process"
+  OUT_DIR: "PATH-to-00_preprocessQC"
+---
+
+```{r read-param, echo=FALSE, eval=T}
+SS_URL=params$SAMPLE_SHEET_URL
+data_dir = params$PREPROCESS_RESULT_PATH
+
+print(params)
+```
+
+
+```{r prep, echo=F, message=F}
+library(knitr)
+library(gendiver)
+library(stringr)
+library(ggplot2)
+
+googlesheets4::gs4_auth(T)
+
+# -----------------------------------------------------
+sample_sheet = read.sample_sheet_lab(SS_URL)
+PROJ_NAME = paste0(basename(dirname(data_dir)), ":", basename(data_dir))
+```
+
+\break
+
+# `r unique(sample_sheet$RUN)`
+# `r PROJ_NAME`
+
+# Pre-process reads QC
+
+Input used:
+
+```{r read.preprocessed, echo=F}
+PPP_dirs = list.dirs(data_dir, recursive = T) 
+
+PPP1 = tail(PPP_dirs[grepl("1_merged", PPP_dirs)], n=1)
+PPP2 = tail(PPP_dirs[grepl("2_trimmed", PPP_dirs)], n=1)
+PPP3 = tail(PPP_dirs[grepl("3_quality", PPP_dirs)], n=1)
+
+# VERBOSE: print dirs
+cat(data_dir, ":")
+cat(paste(sapply(c(PPP1, PPP2, PPP3),basename), collapse = "\n"))
+
+prepro_df = dplyr::bind_rows(
+  read.logs_preprocess(PPP1, stepname = "merged"),
+  read.logs_preprocess(PPP2, stepname = "trimmed", logpattern = "trimmed.log"),
+  read.logs_preprocess(PPP3, stepname = "filter", logpattern = "filter.log")
+)
+
+prepro_df$pipeline_step = "PRE-PROCESS"
+
+```
+
+- calculate original per-sample DEMULTIPLEXED input from merging logs/files
+
+```{r add-demu, echo=F}
+
+if ("vsearch-merging" %in% prepro_df$toolname){
+  print('vsearch-merging detected!')
+  per_sample_demultiplexed_input = data.frame(
+    row.names = NULL,
+    "read_count"=sapply(list.files(PPP1, pattern = ".log", full.names = T), extract.mergepairs_log.tot_input),
+    "sample_id"=gsub("\\..*", "",list.files(PPP1, pattern = ".log")),
+    "file_name"=NA,
+    "pipeline_step" = "DEMULTIPLEX",
+    "type" = "total-demultiplexed",
+    "toolname" = "demultiplexing"
+    )
+  
+
+} else if ("pear-merging" %in% prepro_df$toolname){
+  print('pear-merging detected!')
+  per_sample_demultiplexed_input = aggregate(
+    read_count ~ sample_id ,
+    data = prepro_df[prepro_df$type %in% c("discarded", "assembled", "unassembled.forward"),],
+    sum)
+
+  per_sample_demultiplexed_input$file_name = NA
+  per_sample_demultiplexed_input$type = "total-demultiplexed"
+  per_sample_demultiplexed_input$pipeline_step = "DEMULTIPLEX"
+  per_sample_demultiplexed_input$toolname = "demultiplexing"
+
+} else {
+  print('NO merge/assembly info !')
+}
+
+
+total_demultiplexed_input = sum(per_sample_demultiplexed_input$read_count)
+
+prepro_df = rbind(per_sample_demultiplexed_input, prepro_df)
+
+# Order the types following pre-processing pipeline
+process_order = c(
+  "total-demultiplexed", # demultiplexing
+  "unassembled.forward", "unassembled.reverse", "discarded", "assembled", # PEAR output
+  "merged", "mergepairs", # vsearch --fastq_mergepairs output
+  "trimmed-5prime", "fullytrimmed", #cutadapt output
+  "filtered", "fastqfilter" # vsearch fastq_filter output
+)
+prepro_df$type = factor(prepro_df$type, levels = rev(process_order), ordered = TRUE)
+prepro_df$toolname = factor(prepro_df$toolname, levels=(unique(prepro_df$toolname)), ordered=TRUE)
+
+```
+
+## Pre-processing success TOTAL
+
+- Pre-processing success run-level (amplicon specific)
+
+```{r echo=F}
+# Calculate success %
+preprocess_total_reads=sum(prepro_df$read_count[grepl("filter", prepro_df$type) ])
+preprocess_success_percent = round(preprocess_total_reads / total_demultiplexed_input *100, 2)
+
+# Calculate overview read numbers
+ovsum = aggregate(prepro_df$read_count, by=list(prepro_df$type), FUN=sum)
+ovsum_txt = paste("  - ", rev(paste(ovsum$Group.1,ovsum$x, sep = ": ")), collapse = "\n")
+```
+
+- Pre-processing success is:  `r preprocess_success_percent`%
+- This corresponds to `r preprocess_total_reads` reads passing pre-processing out of `r total_demultiplexed_input` total demultiplexed reads
+
+
+```{r pp-overview-plot, fig.height=5, fig.width=10, echo=F}
+## TOTAL READCOUNT PER STEP
+p_overview <- ggplot(data=prepro_df, aes(x=type, y=read_count, fill=toolname)) +
+  geom_col() + coord_flip() + theme_minimal() +
+  xlab("File type") +
+  ylab("Total number of reads") +
+  ggtitle(paste0(PROJ_NAME),
+          subtitle = paste0(
+            paste0("Pre-processing success (filtered/demultiplexed) = ", preprocess_success_percent, "%"),
+            "\n", ovsum_txt))
+
+p_overview
+```
+
+
+## Pre-processing success per POOL
+
+```{r, echo=F}
+for (stepi in levels(prepro_df$toolname)){
+  tempdf = prepro_df[prepro_df$toolname == stepi,c("read_count", "sample_id")]
+  colnames(tempdf) = c(paste0("read_count.", stepi),"UNIQUE_SAMPLE_CODE")
+  sample_sheet = merge(sample_sheet, tempdf)
+}
+read_count.preprocess = tail(colnames(sample_sheet), 1)
+
+sample_sheet$percent.preprocess = round((sample_sheet[[read_count.preprocess]] / sample_sheet$read_count.demultiplex) * 100, 2)
+```
+
+
+```{r pp-per-pool, fig.height=6, fig.width=16, echo=F}
+
+pp_summary_df_pp = aggregate(
+  cbind(sample_sheet$read_count.demultiplex, sample_sheet[[read_count.preprocess]]) ~  sample_sheet$LIBRARY_CODE,FUN =  sum)
+colnames(pp_summary_df_pp) = c("LIBRARY_CODE", "read_count.demultiplex", "read_count.preprocess")
+pp_summary_p = reshape2::melt(pp_summary_df_pp, id=1, value.name = "read_count", )
+pp_summary_p$variable = as.character(pp_summary_p$variable)
+
+pp_summary_p = merge(pp_summary_p, pp_summary_df_pp[, c("LIBRARY_CODE", "read_count.demultiplex"), drop=F], by="LIBRARY_CODE" )
+
+pp_summary_p$percent.preprocess = round((pp_summary_p$read_count / pp_summary_p$read_count.demultiplex) * 100,2)
+
+p_pp_pp = ggplot(data=pp_summary_p, aes(x=variable, y=read_count, fill=variable)) +
+  geom_col() + facet_grid(~LIBRARY_CODE) +
+  geom_text(
+    aes(label = paste0(round(percent.preprocess, 2), "%") ),
+    position = position_dodge(width = 0.5), 
+    vjust = -1,
+  ) + 
+  scale_x_discrete(labels = NULL, breaks = NULL) + labs(x = NULL) +
+  ggtitle(paste0(PROJ_NAME, " - Overview of pre-processing per pool"))
+
+p_pp_pp
+
+```
+
+
+## Pre-processing success per SAMPLE/AMPLICON
+
+Plotting the pre-processed read_counts per sample/amplicon
+
+- Summary statistics on all samples/amplicons:
+
+```{r echo=F}
+filter_counts = prepro_df$read_count[grepl("filter", prepro_df$type)]
+summary(filter_counts)
+```
+
+- Quantiles in more detail:
+
+```{r echo=F}
+kable(floor(quantile(filter_counts, seq(0.05,0.95,0.05))), col.names = c("Quantile", "Readcounts"))
+```
+
+- Per SAMPLE/AMPLICON number of reads, grouped per POOL:
+
+```{r prep-plot, echo=F}
+prepro_df = merge(prepro_df, sample_sheet[, c("UNIQUE_SAMPLE_CODE", "LIBRARY_CODE")], by.x="sample_id", by.y="UNIQUE_SAMPLE_CODE")
+
+sfigh = max(table(sample_sheet$LIBRARY_CODE)) * 0.2
+
+qcplot.preprocessing_sample = function(prepro_df){
+  ## PER SAMPLE READCOUNT tracking
+sample_read_count_track.df = prepro_df[prepro_df$sample_id != "no_sample",]
+# And add total reads per sample
+per_sample_total = sample_read_count_track.df[sample_read_count_track.df$type=="total-demultiplexed", c("sample_id", "read_count")]
+colnames(per_sample_total) = c("sample_id", "read_count_total")
+sample_read_count_track.df = merge(sample_read_count_track.df, per_sample_total, by='sample_id')
+# Calc percentage
+sample_read_count_track.df$read_count_percent = sample_read_count_track.df$read_count / sample_read_count_track.df$read_count_total * 100
+
+# Prune data
+discarded_types = levels(sample_read_count_track.df$type)[grepl("discard|unassembled|REV|unknown", levels(sample_read_count_track.df$type))]
+sample_read_count_track.df = sample_read_count_track.df[!sample_read_count_track.df$type %in% discarded_types,]
+
+# Order dataframe on type -> nice overlap order to track readcounts per step
+sample_read_count_track.df = sample_read_count_track.df[order(sample_read_count_track.df$type, decreasing = T),]
+
+# order sample-id levels on filtered read_counts -> order samples/amplicon based on RESULTS (in plot)
+per_sample_total_filtered = sample_read_count_track.df[grepl("filter", sample_read_count_track.df$type), c("sample_id", "read_count", "read_count_percent")]
+sample_order_filtered = per_sample_total_filtered$sample_id[order(per_sample_total_filtered$read_count)]
+sample_order_filtered_percent = per_sample_total_filtered$sample_id[order(per_sample_total_filtered$read_count_percent)]
+
+# Calculate some summary statistics for the final product
+r_sum = summary(sample_read_count_track.df$read_count[grepl("filter", sample_read_count_track.df$type)])
+p_sum = summary(sample_read_count_track.df$read_count_percent[grepl("filter", sample_read_count_track.df$type)])
+
+# Plot total reads
+p_sample_overview <- ggplot(data=sample_read_count_track.df, aes(x=sample_id, y=read_count, fill=type)) +
+  geom_bar(stat="identity", position = position_identity()) + coord_flip() +
+  xlim(sample_order_filtered) + # "hack" to create custom order on x axis
+  scale_fill_brewer(palette = "Accent") +
+  geom_hline(yintercept = r_sum) + 
+  annotate("text", x=length(unique(sample_read_count_track.df$sample_id))-1, y=r_sum, angle = 90, label=names(r_sum)) +
+  xlab("Unique sample code") +
+  ylab("Number of reads\n(horizontal lines correspond to summary statistics)") +
+  ggtitle(paste0(PROJ_NAME, " - Per sample read-counts"),
+          subtitle = paste(round(r_sum), names(r_sum), sep = "  :    ", collapse = "\n"))
+
+# plot percentage of demultiplexed
+p_sample_overview_percent = ggplot(
+  data=sample_read_count_track.df, aes(x=sample_id, y=read_count_percent, fill=type)) +
+  geom_bar(stat="identity", position = position_identity()) + coord_flip() + 
+  xlim(sample_order_filtered_percent) + # "hack" to create custom order on x axis
+  scale_fill_brewer(palette = "Accent") +
+  xlab("Unique sample code") +
+  ylab("Percentage of reads (%)") +
+  ggtitle(paste0(PROJ_NAME, " - Per sample read-count-percent (%)"),
+          subtitle = paste(round(p_sum,2), names(p_sum), sep = "  :    ", collapse = "\n"))
+
+return(list(p_sample_overview, p_sample_overview_percent))
+}
+```
+
+```{r fig.height=sfigh, fig.width=20, echo=F, results='asis'}
+
+for (POOL in unique(prepro_df$LIBRARY_CODE)){
+  pool_p = qcplot.preprocessing_sample(prepro_df[prepro_df$LIBRARY_CODE == POOL,])
+  outp = pool_p[[1]]
+  print(outp + ggplot2::ggtitle(paste0(POOL, " - ", outp$labels$title), subtitle = outp$labels$subtitle))
+  # print(pool_p[[2]])
+}
+
+```
+
+\break
+
+## Pre-processing success per PLATE (heatmap)
+
+- Using the readcounts per amplicon after pre-processing (`filter`)
+
+```{r, echo=FALSE}
+sample_sheet$PLATE = paste0(sample_sheet$PRIMERS, ":", sample_sheet$PLATE_NOTES)
+sample_sheet$SAMPLE_TYPE = paste0(sample_sheet$PROJECT,":", sample_sheet$PRIMERS)
+sample_sheet$SAMPLE_TYPE[sample_sheet$ANALYSE_TYPE_CODE < 999 ] = sample_sheet$ANALYSE_TYPE[sample_sheet$ANALYSE_TYPE_CODE < 999]
+# sample_sheet$SAMPLE_TYPE[sample_sheet$read_count < 250] = NA
+sample_sheet$SAMPLE_TYPE = factor(sample_sheet$SAMPLE_TYPE)
+sample_sheet$LABEL = sample_sheet$ANALYSE_TYPE
+sample_sheet$LABEL[sample_sheet$ANALYSE_TYPE_CODE == 999] = ""
+sample_sheet$WELL_COLUMN = as.factor(sample_sheet$WELL_COLUMN)
+mycols = length(unique(sample_sheet$PRIMERS))
+
+figh = length(unique(sample_sheet$PLATE))
+```
+
+- Map readcounts per WELL to **check overall read distribution**
+
+```{r plate-layout-ident, echo=F, fig.width=15, fig.height=figh, warning=FALSE}
+
+pl_p = ggplot2::ggplot( data=sample_sheet, ggplot2::aes(
+  x = .data$WELL_COLUMN, y=.data$WELL_ROW, fill=.data$SAMPLE_TYPE, alpha=.data[[read_count.preprocess]], colour=.data$SAMPLE_TYPE)) +
+ggplot2::geom_tile(linewidth=0.2, colour="black") +
+  geom_text(aes(label = LABEL), colour="black", size=2, alpha=0.8) +
+ggplot2::facet_wrap(~.data$PLATE, ncol = 3, scales = "free") +
+ggplot2::scale_x_discrete(limits=factor(c(1:12))) +
+ggplot2::scale_y_discrete(limits=rev) +
+  scale_fill_discrete() +
+ggplot2::theme_classic()
+
+pl_p
+
+```
+
+- Map **log10** readcounts per WELL to **highlight samples/amplicons with low read-counts**
+
+
+```{r plate-layout-log, echo=F, fig.width=15, fig.height=figh, warning=FALSE}
+
+pl_p + scale_alpha_continuous(transform="log10")
+
+```
+
+## Readcounts per CONTROL
+
+```{r echo = F}
+type.tb = table(sample_sheet$ANALYSE_TYPE)
+type.tb
+
+controls = names(type.tb)[names(type.tb) != "Metabarcoding"]
+
+control_plots = as.list(controls, controls)
+names(control_plots) = controls
+
+fH = max(type.tb[controls])*0.5
+```
+
+
+
+```{r fig.height=fH, fig.width=20, echo=F, results='asis'}
+
+for (typei in controls){
+  cdata_samples = sample_sheet$UNIQUE_SAMPLE_CODE[sample_sheet$ANALYSE_TYPE == typei]
+  control_p = qcplot.preprocessing_sample(prepro_df[prepro_df$sample_id %in% cdata_samples,])
+  outp = control_p[[1]]
+  print(outp + ggplot2::ggtitle(paste0(typei, " - ", outp$labels$title), subtitle = outp$labels$subtitle))
+  # print(pool_p[[2]])
+}
+
+```
+
+## SUPPLEMENT: Readcount-table for detailed investigation
+
+- If there are more run/data specific questions regarding the pre-processing, please find the supplementary table and investigate as you like!
+
+```{r echo=FALSE}
+tfname=paste0("preprocess-QC-report-supplement-table.csv")
+tfoutp = file.path(params$OUT_DIR, tfname)
+print(tfname)
+sample_sheet$LABEL=NULL
+write.table(sample_sheet, file = tfoutp, sep=",", row.names = F)
+# If this throws an error: in `write.table()`:! unimplemented type 'list' in 'EncodeElement'
+# Need to change the extraction date in the sample sheet format -> numeric 000000 (also update USI col probably)
+```
+- You can read this in R with:
+
+```{r, eval=F}
+mydf = read.csv("preprocess-QC-report-supplement-table.csv", header=T)
+```

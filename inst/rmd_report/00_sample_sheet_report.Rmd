@@ -1,0 +1,247 @@
+---
+title: "Sample Sheet Report"
+author: 'Nick Dillen'
+date: "`r Sys.Date()`"
+output:
+  pdf_document: 
+    toc: true
+    fig_caption: true
+  html_document:
+    code_folding: hide
+    highlight: haddock
+    number_sections: false
+    fig_caption: true
+    theme: sandstone
+    toc: true
+    toc_float: true
+urlcolor: blue
+params: 
+  SAMPLE_SHEET_URL: "SAMPLE_SHEET_URL"
+  BC_OUT_DIR: "BC_OUT_DIR"
+---
+
+```{r user-input, echo=F}
+library(knitr)
+library(gendiver)
+
+SS_URL = params$SAMPLE_SHEET_URL
+
+print(params)
+
+```
+
+
+```{r gs4-auth, message=FALSE, echo=F}
+googlesheets4::gs4_auth(T)
+
+ss.df = googlesheets4::read_sheet(SS_URL)
+```
+
+\break
+
+# `r unique(ss.df$run)`
+
+Used sample sheet link:
+
+- `r knitr::asis_output(SS_URL)`
+
+## INFO: number of PCR-amplicons
+
+- Number of PCR-amplicons: `r nrow(ss.df)`
+
+## CHECK: USI codes are unique
+
+USI = `unique_sample_code`
+
+- Number of **duplicated** USI: `r sum(duplicated(ss.df$unique_sample_code))`
+- Number of **unique** USI: `r sum(!duplicated(ss.df$unique_sample_code))`
+
+```{r USI-check, message=F, echo=F}
+
+if (sum(duplicated(ss.df$unique_sample_code)) == 0 ){
+  sample_metadata = gendiver::read.sample_sheet_lab(SS_URL)
+  rm(ss.df)
+  
+  print("All Unique Sample Codes are UNIQUE -> OK!")
+
+} else {
+  
+  print("Non Unique Sample Codes:")
+  
+  nonUSI = ss.df$unique_sample_code[duplicated(ss.df$unique_sample_code)]
+  print(as.data.frame(table(ss.df$unique_sample_code[ss.df$unique_sample_code %in% nonUSI])))
+  
+  knitr::knit_exit()
+}
+
+```
+
+## CHECK: USI codes are in expected format
+
+- Unique Sample codes should be structured like in: [Guidelines Samplesheet voor een metabarcoding run](https://docs.google.com/document/d/1s3cuuwSkjyhIDy8Pd9Hf9wfjnXdV71aS)
+
+```{r USI-complete, echo=F}
+
+# unique_sample_code_regex = "\\d+_\\d+_\\d+_\\d+_\\d+_\\d+_\\d+_\\d+"
+unique_sample_code_regex = "\\d{3}_\\d{3}_\\d{6}_\\d{3}_\\d{4}_\\d{3}_\\d{2}_\\d{5}"
+
+print(paste0('Checking USI for format: ', unique_sample_code_regex))
+
+if (sum(!grepl(unique_sample_code_regex, sample_metadata$UNIQUE_SAMPLE_CODE)) > 0){
+  print(paste0("Warning: ", sum(!grepl(unique_sample_code_regex, sample_metadata$UNIQUE_SAMPLE_CODE)), " USIs are NOT in correct format!"))
+  kable(sample_metadata$UNIQUE_SAMPLE_CODE[!grepl(unique_sample_code_regex, sample_metadata$UNIQUE_SAMPLE_CODE)], col.names = c("Incorrect USI format detected:"))
+} else {
+  
+  print(paste0("All USIs conform with expected format -> OK !"))
+  
+}
+
+```
+
+## INFO: Overview of sample extracts and lab procedure
+
+```{r labwork-overview, echo=F}
+
+sample_metadata$TECHNICAL_REPLICATE_COLLAPSED = sample_metadata$TECHNICAL_REPLICATE
+sample_metadata$TECHNICAL_REPLICATE_COLLAPSED[sample_metadata$TECHNICAL_REPLICATE_COLLAPSED > 3] = "3+"
+
+kable(table(sample_metadata$PROJECT,
+            sample_metadata$PRIMERS,
+            sample_metadata$ANALYSE_TYPE,
+            sample_metadata$TECHNICAL_REPLICATE_COLLAPSED), col.names = c("Project", "Primers","analyse", "replicate","PCR NR"))
+
+
+```
+
+
+## INFO: per POOL content
+
+```{r pool-tables, echo=F, fig.pos='H'}
+# XXX per pool
+make.combi_table = function(sample_metadata, group=1, view=c("MATRIX", "PROJECT", "ANALYSE_TYPE","PRIMERS")) {
+  
+  tlist = as.list(1:length(view))
+  tcols = as.list(1:length(view))
+  
+  for (i in tlist) {
+    tlist[[i]] = table(sample_metadata[,group], sample_metadata[,view[i]])
+    tcols[[i]] = paste0(colnames(sample_metadata)[view[i]], "=" ,colnames(tlist[[i]]))
+  }
+  
+  combi_table = do.call(cbind, tlist)
+  
+  colnames(combi_table) = unlist(tcols)
+  
+  return(combi_table)
+}
+
+make.combi_table(sample_metadata)
+
+```
+
+
+### Technical replicates
+
+```{r pool_rep-table, echo=F}
+
+kable(table(sample_metadata$LIBRARY_CODE, sample_metadata$TECHNICAL_REPLICATE))
+
+```
+
+## CHECK: barcode sequences are unique per pool
+
+```{r bc-check, echo=F}
+
+# Check unique barcodes per POOL
+df1 = as.data.frame(table(sample_metadata$LIBRARY_CODE, sample_metadata$BARCODE_F_PRIMER))
+df2 = as.data.frame(table(sample_metadata$LIBRARY_CODE, sample_metadata$BARCODE_R_PRIMER))
+df1$TYPE="FWD"
+df2$TYPE="REV"
+
+bc.df = rbind(df1, df2)
+
+BARCODE_CHECK=FALSE
+if(max(bc.df$Freq) > 1){
+  problem.bc = bc.df[bc.df$Freq > 1,]
+  print("Warning: POOLs with NON-unique barcode sequences detected!")
+  colnames(problem.bc) = c("LIBRARY_CODE", "BARCODE", "Freq", "TYPE")
+
+  print(table(as.character(problem.bc$LIBRARY_CODE)))
+
+  kable(problem.bc[, c(1,2,4,3)], row.names = FALSE)
+} else {
+    
+  print(paste0("All barcodes UNIQUE within a POOL -> OK !"))
+  BARCODE_CHECK=TRUE
+
+
+  }
+
+```
+
+## CHECK: PLATE_NOTES should reflect physical/real plate
+
+- Ideally (for downstream data analysis) PLATE_NOTES reflects a real plate -> **96 wells max**
+- We need to define a "physical/real" PCR-plate as `PLATE_NOTES` + `PRIMER`
+
+```{r PLATE_NOTES-check, echo=F}
+
+sample_metadata$PLATE = paste0(sample_metadata$PRIMERS, ":", sample_metadata$PLATE_NOTES)
+sample_metadata$SAMPLE_TYPE = paste0(sample_metadata$PROJECT,":", sample_metadata$PRIMERS)
+sample_metadata$SAMPLE_TYPE[sample_metadata$ANALYSE_TYPE_CODE < 999 ] = sample_metadata$ANALYSE_TYPE[sample_metadata$ANALYSE_TYPE_CODE < 999]
+
+plate_tab = table(sample_metadata$PLATE, sample_metadata$SAMPLE_TYPE)
+
+kable(plate_tab)
+
+if ( sum(rowSums(plate_tab) > 96) > 1 ){
+  print("Warning: Some PLATE_NOTES contain more than 96 data-points")
+  tt = table(sample_metadata$PLATE_NOTES)
+  kable(tt[tt>96], col.names = c("PLATE_NOTES", "Number of samples (>96)"))
+
+} else {
+  print("PLATE_NOTES seems to reflect real plate (max 96 wells) -> OK!")
+}
+
+plh=length(unique(sample_metadata$PLATE_NOTES))
+```
+\break
+
+## INFO: Plate layout
+
+```{r plate-layout, echo=F, fig.width=15, fig.height=plh}
+sample_metadata$WELL_COLUMN = as.factor(sample_metadata$WELL_COLUMN)
+sample_metadata$LABEL = sample_metadata$ANALYSE_TYPE
+sample_metadata$LABEL[sample_metadata$ANALYSE_TYPE_CODE == 999] = ""
+sample_metadata$LABEL = paste0(sample_metadata$LABEL, sample_metadata$TECHNICAL_REPLICATE_CODE)
+mycols = length(unique(sample_metadata$PRIMERS))
+
+ggplot2::ggplot( data=sample_metadata, ggplot2::aes(
+  x = .data$WELL_COLUMN, y=.data$WELL_ROW, fill=.data$SAMPLE_TYPE)) +
+ggplot2::geom_tile(colour = "black", linewidth=0.2) +
+  ggplot2::geom_text(ggplot2::aes(label = LABEL), colour="black", size=2, alpha=0.8) +
+ggplot2::facet_wrap(~.data$PLATE, ncol = 3, scales = "free") +
+ggplot2::scale_x_discrete(limits=factor(c(1:12))) +
+ggplot2::scale_y_discrete(limits=rev) +
+ggplot2::theme_classic()
+  # ggplot2::theme(legend.position="none")
+
+```
+
+\pagebreak
+
+## Write barcode-files for demultiplexing
+
+- Once the sample-sheet is evaluated and barcodes are OK -> make tsv files to use as input for demultiplexing
+
+```{r make-barcode-files, echo=T}
+
+if (BARCODE_CHECK==TRUE){
+  print("INFO: Writing barcode files")
+  outdir=params$BC_OUT_DIR
+  dir.create(outdir)
+  gendiver::write.barcode_files(sample_metadata, out_dir = outdir, LIB_COL = "LIBRARY_CODE")
+}
+
+```
+
