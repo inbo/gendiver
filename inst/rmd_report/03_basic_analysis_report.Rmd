@@ -1,11 +1,11 @@
 ---
-title: "Basic analysis Report"
+title: "Operational Data Report"
 author: 'Nick Dillen'
 date: "`r Sys.Date()`"
 output:
-  pdf_document: 
-    toc: true
-    fig_caption: true
+  # pdf_document: 
+  #   toc: true
+  #   fig_caption: true
   html_document:
     code_folding: hide
     highlight: haddock
@@ -19,9 +19,14 @@ params:
   SAMPLE_SHEET_URL: "URL-sample-sheet"
   TAX_PATH: "TAX-result"
   OTU_PATH: "OTU-table"
-  FASTA_PATH: "FASTA"
+  FASTA_PATH: "FASTA-path"
   OUT_DIR: "."
 ---
+
+```{r setup, echo=FALSE,}
+options(width = 80)
+```
+
 
 # Operational Data report
 
@@ -33,6 +38,7 @@ params:
 - Input lab sample sheet: `r params$SAMPLE_SHEET_URL`
 - Input OTU table: `r params$OTU_PATH`
 - Input Taxonomy file: `r params$TAX_PATH`
+- Input FASTA: `r params$FASTA_PATH`
 
 ```{r read-param, echo=FALSE, eval=T, message=F}
 library(gendiver)
@@ -78,9 +84,11 @@ SS_NAME = googledrive::drive_get(params$SAMPLE_SHEET_URL)$name
 
 # Read data
 
-```{r read.opdata, echo=T}
+```{r read.opdata, echo=F, warning=F, message=T}
 
 sample_sheet = read.sample_sheet_lab(params$SAMPLE_SHEET_URL)
+
+seqs = read.fastx_gdrive(params$FASTA_PATH)
 
 if (grepl("obitools", otu_tab_path, ignore.case = T)){
   otu_df <- read.otu_table_obitools3(params$OTU_PATH)
@@ -91,54 +99,214 @@ if (grepl("obitools", otu_tab_path, ignore.case = T)){
 
 if (grepl("sintax", tax_tab_path, ignore.case = T)){
   tax_df =  read.taxonomy_sintax(params$TAX_PATH, clean_tax = T, add_custom = T)
+  TAX_TOOL="SINTAX"
 } else if(grepl("idtaxa", tax_tab_path, ignore.case = T)){
   #Read OTU table and tax table, and explore data
   tax_df <- read.taxonomy_idtaxa(params$TAX_PATH)
-} else if(grepl("ecotag", tax_tab_path, ignore.case = T)){
+  TAX_TOOL="IDTAXA"
+} else if(grepl("obitools3", tax_tab_path, ignore.case = T)){
   #Read OTU table and tax table, and explore data
-  tax_df <- read.taxonomy_obitools3(params$TAX_PATH)
+  tax_df_raw <- read.taxonomy_obitools3(params$TAX_PATH)
+  tax_df = select.taxonomy_obitools3(tax_df_raw, min_BEST_ID = 1, fillNA = F)
+  
+  names(seqs) = gsub(";size=\\d*", "", names(seqs))
+  # seqs = seqs[row.names(tax_df)]
+  TAX_TOOL="OBITOOLS3"
+
 } 
 
-seqs = read.fastx_gdrive(params$FASTA_PATH)
 ```
 
-# Basic exploration
+\break
 
-- This is (for now) hardcoded for SINTAX and VSEARCH
+# Basic exploration of Operational Data
 
-```{r, fig.width=8, echo=F}
+```{r basic-explore, fig.width=10, echo=F, fig.align='center'}
 
 ## BASIC EXPLORATION PLOTS
 annot_overview=colSums(!is.na(tax_df))
 annot_overview = annot_overview[names(annot_overview) != "custom_taxon"]
 annot_overview = c(nrow(tax_df), annot_overview)
 names(annot_overview)[1] = 'TOTAL'
+full_sub =paste0(basename(otu_tab_path), "\n",basename(tax_tab_path))
+barplot(annot_overview, main="Taxonomy assignments overview - OTUs", ylab = "Number of OTUs", sub=full_sub)
 print(annot_overview, row.names = F)
 
-barplot(annot_overview, main="Taxonomy assignments overview", ylab = "Number of OTUs")
+tax_df_rc = tax_df
+otu_tot_rc = rowSums(otu_df)
+tax_df_rc$read_count = NA
+tax_df_rc[names(otu_tot_rc), c("read_count")] = otu_tot_rc
 
+tb_rc = sapply(colnames(tax_df), function(x) sum(tax_df_rc$read_count[!is.na(tax_df_rc[[x]])]))
+annot_overview2 = tb_rc[names(tb_rc) != "custom_taxon"]
+annot_overview2 = c(sum(tax_df_rc$read_count), annot_overview2)
+names(annot_overview2)[1] = 'TOTAL'
+barplot(annot_overview2, main="Taxonomy assignments overview - READS", ylab = "Number of reads", sub=full_sub)
+print(annot_overview2, row.names = F)
+
+# Sequence length
 asv_lengths = width(seqs)
 
-hist(asv_lengths, breaks = 100, main = "OTU seq length", sub=basename(otu_tab_path) ,xlab = "Length (bp)")
+hist(asv_lengths, breaks = 100, main = "All data: OTU seq length", sub=basename(fasta_path) ,xlab = "Length (bp)")
 
+reads_length = data.frame("reads"=rowSums(otu_df), "length"=asv_lengths)
 
-reads_length = data.frame("reads"=rowSums(otu_df),
-                             "length"=asv_lengths, row.names = row.names(tax_df), width=12)
 len_reads.df = aggregate(reads~length, reads_length, sum)
 
-plot(len_reads.df, main = "Per ASV-length the number of reads",
+plot(len_reads.df, main = "All data: Per ASV-length the number of reads",
      sub=basename(otu_tab_path), xlab = "ASV length")
 
-plot(cbind(len_reads.df$length, cumsum(len_reads.df$reads)), main = "Per ASV-length the number of reads",
+plot(cbind(len_reads.df$length, cumsum(len_reads.df$reads)), main = "All data: Per ASV-length the number of reads",
      sub=basename(otu_tab_path), xlab = "ASV length", ylab="Cumulative sum reads")
 
-hist(rowSums(otu_df), breaks = 100, main = "Per taxa reads", sub=basename(otu_tab_path), 
+hist(rowSums(otu_df), breaks = 100, main = "All data: Per OTU reads", sub=basename(otu_tab_path), 
      xlab = "Total number of reads")
 
-
-hist(colSums(otu_df), breaks = 100, main = "Per sample reads", sub=basename(otu_tab_path),
+hist(colSums(otu_df), breaks = 100, main = "All data: Per sample reads", sub=basename(otu_tab_path),
      xlab = "Total number of reads")
+
 ```
+
+
+```{r obi-explore, eval=(TAX_TOOL=="OBITOOLS3"), fig.width=10, echo=F, fig.align='center'}
+obitoolsID_check = tax_df_raw[row.names(otu_df), c(1), drop=F]
+
+hist(obitoolsID_check$BEST_IDENTITY, breaks = 100,
+     main = "All data: BEST_IDENTITY per OTU", sub=basename(tax_tab_path),
+     xlab = "BEST_IDENTITY", ylab="number of OTUs")
+
+ID_p = cbind(rowSums(otu_df),floor(obitoolsID_check$BEST_IDENTITY*100))
+colnames(ID_p) = c("read_count", "BEST_ID_floor")
+ID_p = aggregate(data=ID_p,  read_count ~ BEST_ID_floor, sum)
+
+
+plot(ID_p$BEST_ID_floor, ID_p$read_count, main = "All data: BEST_IDENTITY per Reads",
+     sub=basename(tax_tab_path) ,xlab = "BEST_IDENTITY", ylab="number of reads")
+```
+
+
+# Taxonomic annotation per SAMPLE/AMPLICON
+
+```{r echo=F}
+
+tax_df_no_custom=tax_df[,!grepl("custom",colnames(tax_df))]
+max_rank = function(x) if (sum(!is.na(x)) > 0) colnames(tax_df_no_custom)[max(which(!is.na(x)))] else "_root"
+base_rank = apply(tax_df_no_custom, FUN=max_rank, MARGIN=1)
+table(base_rank)
+
+otu_df_rank = otu_df
+otu_df_rank$max_tax_rank = base_rank[row.names(otu_df_rank)]
+
+otu_df_rank = reshape2::melt(otu_df_rank, id.vars=c("max_tax_rank"), value.name = "read_count", variable.name="USI")
+otu_df_rank = aggregate(data=otu_df_rank, read_count ~ max_tax_rank + USI, sum)
+
+# rank on non-lowest level (aka how many reads not species level annot)
+llv = tail(colnames(tax_df),1)
+usilvl = otu_df_rank
+if (length(unique(otu_df_rank$max_tax_rank)) != llv) {usilvl = aggregate(data=otu_df_rank[otu_df_rank$max_tax_rank != llv,], read_count ~ USI, sum)}
+usilvl = usilvl$USI[order(usilvl$read_count, decreasing = F)]
+
+otu_df_rank$USI = factor(otu_df_rank$USI, levels=usilvl)
+otu_df_rank$max_tax_rank = factor(otu_df_rank$max_tax_rank, levels = rev(c("_root", colnames(tax_df_no_custom))))
+
+pss_plot = ggplot(data=otu_df_rank, aes(x=USI, y=read_count, fill = max_tax_rank)) + geom_col(position = "stack") + 
+  coord_flip() + ggtitle("Total sample reads by maximum taxonomic level", subtitle = paste0(basename(otu_tab_path), "\n",basename(tax_tab_path))) +
+    theme(legend.text = element_text(size=12),
+        legend.key.size=unit(0.4, "cm"),
+        legend.position="top") +
+  scale_y_continuous(expand = c(0,0))
+
+sfigh = min(150, ncol(otu_df)*0.2)
+```
+
+```{r fig.height=sfigh, fig.width=20, echo=F, fig.align='center'}
+pss_plot
+```
+
+- This might be quite small for the number of samples/amplicons
+- Check the generated supplement `.pdf`
+
+```{r echo=F}
+ggfname=paste0("operational-data-QC-report-supplement-fig.pdf")
+ggoutp = file.path(params$OUT_DIR,ggfname)
+print(ggfname)
+ggsave(ggoutp, pss_plot, width = 25, height = ncol(otu_df)*0.2, limitsize = FALSE)
+```
+
+
+```{r obi3-ID-check, eval=(TAX_TOOL == "OBITOOLS3"), results='asis' ,echo=F}
+ID_cutoff=1
+
+cat(paste0("\n## [OBITOOLS] BEST_IDENTITY filter per sample: ID", ID_cutoff, ""))
+
+obitoolsID_check$KEEP = FALSE
+obitoolsID_check$KEEP[obitoolsID_check$BEST_IDENTITY >= ID_cutoff] = TRUE
+
+obitoolsID_pl = reshape2::melt(cbind(otu_df, obitoolsID_check[, c("KEEP"), drop=F]), id.vars=c("KEEP"), value.name = "read_count", variable.name="USI")
+obitoolsID_pl = aggregate(data=obitoolsID_pl, read_count ~ KEEP + USI, sum)
+usi_rc_order = obitoolsID_pl[!obitoolsID_pl$KEEP,]
+usi_rc_order = usi_rc_order$USI[order(usi_rc_order$read_count, decreasing = F)]
+obitoolsID_pl$USI = factor(obitoolsID_pl$USI, levels=usi_rc_order)
+percent_unknown = (sum(obitoolsID_pl$read_count[!obitoolsID_pl$KEEP]) / sum(obitoolsID_pl$read_count)) *100
+obitoolsID_pl$KEEP = factor(obitoolsID_pl$KEEP, levels = rev(c(FALSE, TRUE)))
+
+#make a barplot of the read counts per sample, this plot is "stacked" and will show the total number of reads, with the "unknown" fraction indicated in another color.
+obi_ID_plot = ggplot(data=obitoolsID_pl, aes(x=USI, y=read_count, fill=KEEP)) +
+  coord_flip() +
+  geom_col(position="stack") +
+  ggtitle(paste0("Number of reads with BEST_ID >=", ID_cutoff), subtitle = paste0(basename(otu_tab_path), "\n",basename(tax_tab_path), "\n", paste0("Percent unknown: ", round(percent_unknown,2), "%" )))   + 
+  theme(legend.text = element_text(size=12),
+        legend.key.size=unit(0.4, "cm"),
+        legend.position="top") +
+  scale_y_continuous(expand = c(0,0)) + scale_fill_brewer(palette="Dark2")
+
+```
+
+```{r obi3-ID-plot, eval=(TAX_TOOL == "OBITOOLS3"), fig.height=sfigh, fig.width=20, fig.align='center'}
+print(obi_ID_plot)
+
+ggfname1 =paste0("operational-data-QC-report-supplement-fig-bis.pdf")
+ggoutp1 = file.path(params$OUT_DIR,ggfname1)
+print(ggfname1)
+ggsave(ggoutp1, obi_ID_plot, width = 25, height = ncol(otu_df)*0.2 , limitsize = FALSE)
+
+```
+
+
+```{r obi3-non1ID-check, eval=(TAX_TOOL == "OBITOOLS3"), echo=F, results='asis'}
+
+cat(paste0("\n## [OBITOOLS] Inspect Abundant/Prevalent non ID",ID_cutoff, " OTUs"))
+
+showN = 25
+
+obitoolsID_check_rc = cbind(data.frame("total_reads" = rowSums(otu_df)), obitoolsID_check)
+obitoolsID_check_rc$prevalence = apply(otu_df, function(x) sum(x > 0), MARGIN=1)
+obitoolsID_check_rc$percent_reads = round(obitoolsID_check_rc$total_reads / sum(rowSums(otu_df) * 100), 10)
+
+# select non cutoff OTUs
+obitoolsID_check_rc = obitoolsID_check_rc[!obitoolsID_check_rc$KEEP, c(1,5,4,2)]
+
+# add sequences and prelim taxon
+obitoolsID_check_rc$taxonomy = tax_df_raw[row.names(obitoolsID_check_rc), c("SCIENTIFIC_NAME")]
+obitoolsID_check_rc$nuc_seq = as.character(seqs[row.names(obitoolsID_check_rc)])
+
+
+# print(tapply(obitoolsID_check_rc$total_reads, obitoolsID_check_rc$taxonomy, sum))
+
+# Tables
+
+#high read
+max_rc_unk = obitoolsID_check_rc[order(obitoolsID_check_rc$total_reads, decreasing = T)[1:showN],]
+kable(max_rc_unk, caption = paste0("non ID", ID_cutoff, " OTUs - ", showN, " Most Abundant"))
+
+max_prev_unk = obitoolsID_check_rc[order(obitoolsID_check_rc$prevalence, decreasing = T)[1:showN],]
+kable(max_prev_unk, caption = paste0("non ID", ID_cutoff, " OTUs - ", showN, " Most Prevalent"))
+
+# plots
+
+#//// after discussion
+```
+
 
 
 # Make Phyloseq object
@@ -146,7 +314,7 @@ hist(colSums(otu_df), breaks = 100, main = "Per sample reads", sub=basename(otu_
 - To work with Phyloseq, check the documentation:
   - https://joey711.github.io/phyloseq/
 
-```{r}
+```{r make-ps}
 # Make phyloseq object
 ps = phyloseq(
   otu_table(otu_df, taxa_are_rows = TRUE),
@@ -154,13 +322,12 @@ ps = phyloseq(
   sample_data(sample_sheet),
   seqs
 )
-
 ps 
 ```
 
 ## Check CONTROL samples/amplicons
 
-```{r}
+```{r show-c, echo=F}
 type.tb = table(sample_data(ps)$ANALYSE_TYPE)
 type.tb
 
@@ -169,19 +336,32 @@ controls = names(type.tb)[names(type.tb) != "Metabarcoding"]
 control_plots = as.list(controls, controls)
 names(control_plots) = controls
 
-fH = max(type.tb[controls])*0.5
+csam.df = data.frame(sample_data(ps))
+csam.df = csam.df[csam.df$ANALYSE_TYPE %in% controls,]
+
+fH = max(length(unique(csam.df$TECHNICAL_REPLICATE_CODE)), 7)
+fW = min(7,length(unique(csam.df$INDIVIDUAL_CODE))*0.7)
 ```
 
-```{r, fig.width=20, fig.height=fH}
-for (typei in controls){
-  ps_control = subset_samples(ps, ANALYSE_TYPE==typei)
-  ps_control = prune_taxa(rowSums(otu_table(ps_control)) > 1, ps_control)
+```{r plot-c, fig.width=fW, fig.height=fH, echo=F, fig.align='center'}
+topx=20
+
+for (i in 1:length(controls)){
+  print(controls[i])
+  maskcontrol = sample_data(ps)[["ANALYSE_TYPE"]] == controls[i]
+  ps_control = prune_samples(maskcontrol, ps)
+  
+  if (sum(taxa_sums(ps_control)) < 1){
+    cat(paste0(controls[i], " are all completely empty!"))
+    next
+  }
+  
+  ps_control = prune_taxa(rowSums(otu_table(ps_control)) > 0, ps_control)
   ps_control = tax_glom(ps_control, "species")
   ps_control
   
   # # create custom color
   txs = taxa_sums(ps_control)
-  topx=20
   txs_keep = names(txs[order(txs, decreasing = T)][1:min(length(txs),topx)])
   txd = as.data.frame(tax_table(ps_control))
   txd$top_species = NA
@@ -189,14 +369,18 @@ for (typei in controls){
 
   tax_table(ps_control) = tax_table(as.matrix(txd))
   
-  p_overview_control = plot_bar(ps_control, fill = "custom_taxon", x = "INDIVIDUAL") + 
+  p_overview_control = plot_bar(ps_control, fill = "custom_taxon", x = "INDIVIDUAL_CODE") + 
   facet_grid(rows = vars(TECHNICAL_REPLICATE))+
-  ggtitle(paste(typei, "- overview"), subtitle = PROJ_NAME)
+  ggtitle(paste(controls[i], "- overview"), subtitle = PROJ_NAME)  +
+    theme(legend.position="top") +
+  scale_y_continuous(expand = c(0,0))
   print(p_overview_control)
   
-  p_overview_control_species = plot_bar(ps_control, fill = "top_species", x = "INDIVIDUAL") + 
+  p_overview_control_species = plot_bar(ps_control, fill = "top_species", x = "INDIVIDUAL_CODE") + 
   facet_grid(rows = vars(TECHNICAL_REPLICATE))+
-  ggtitle(paste(typei, "- top",topx,"taxa"), subtitle = PROJ_NAME)
+  ggtitle(paste(controls[i], "- top",topx,"taxa"), subtitle = PROJ_NAME) +
+    theme(legend.position="top") +
+  scale_y_continuous(expand = c(0,0)) 
   print(p_overview_control_species)
 }
 ```
@@ -204,7 +388,7 @@ for (typei in controls){
 
 ## Overview
 
-```{r MB-samples-overview}
+```{r MB-samples-overview, echo=F}
 ### Inspect Samples ###
 ps_samples = subset_samples(ps, ANALYSE_TYPE_CODE=="999")
 
@@ -221,10 +405,10 @@ ps_topX = tax_glom(ps_topX, "custom_taxon")
 - Only look at top `r x_cutoff` top abundant ASVs (reads) to reduce data -> this amounts to `r round(sum(taxa_sums(ps_topX))/sum(taxa_sums(ps_samples)) *100, 2)`% of data
 - group on custom taxonomy
 
-```{r, fig.height=25, fig.width=30, warning=F}
+```{r, fig.height=25, fig.width=30, warning=F, echo=F, , fig.align='center'}
 normalized_ps = transform_sample_counts(ps_topX, function(OTU) OTU/sum(OTU) * 100)
   
-plot_bar(normalized_ps, fill = "custom_taxon", x="INDIVIDUAL") + 
+plot_bar(normalized_ps, fill = "custom_taxon", x="INDIVIDUAL_CODE") + 
   # coord_flip() +
   facet_grid(rows = vars(TECHNICAL_REPLICATE)) + 
   ggtitle(paste(PROJ_NAME)) + ylab('Relative abundance (%)') +  theme(legend.position = "bottom")
@@ -234,76 +418,225 @@ plot_bar(normalized_ps, fill = "custom_taxon", x="INDIVIDUAL") +
 
 # Taxonomy based clustering metrics
 
-We can use taxonomy information to assess clustering.
+We can use taxonomy information to (more or less) assess the clustering results.
 
-- Note that taxonomy is often not real "Ground-Truth":
-  - **Reference databases** have mistakes
-  - Taxonomic annotations **tool** can make false positive/negative taxonomic annotations
-  - **Noisy data** will lead to increased false positive annotations, picking up noise as signal. (=> data not enough filtered)
-  - Target **amplicon** might not resolve into species, or have intra-species variation.
+- Ideally 1 cluster == 1 species -> check for number of OTUs per species annotation
+
+Note that taxonomy is often not real "Ground-Truth":
+
+- **Reference databases** have mistakes
+- Taxonomic annotations **tool** can make false positive/negative taxonomic annotations
+- **Noisy data** will lead to increased false positive annotations, picking up noise as signal. (=> data not enough filtered)
+- Target **amplicon** might not resolve into species, or have intra-species variation.
 
 
-```{r}
+```{r big-loop, echo=F}
 
+# make plot input data
 ps_select = prune_taxa(topX, ps_samples)
 pstab = as.data.frame(tax_table(ps_select))
+tax_levels=colnames(pstab)
+pstab$total_count = taxa_sums(otu_table(ps_select))
 
+# Parameters
+topN_search = 15
+
+# Containers
 taxdata = data.frame()
-minprint = 15
-
 pl_list = list()
+pl_reads_list = list()
+pl_otus_list = list()
+pl_scatter_list = list()
 tb_list= list()
 
-for (tax_rank in colnames(pstab)){
-  
+# Make all plots/tables per taxonomic level
+for (tax_rank in tax_levels){
+  # Skip custom-taxon if present
   if (grepl("custom", tax_rank)){next}
   
-  # cat(paste0("### ", tax_rank,"\n"))
+  # Check number of OTU per taxrank
+  tx_tab_i_total = data.frame(table(pstab[[tax_rank]], useNA = "ifany"))
+  colnames(tx_tab_i_total) = c("Taxonomy", "nr_otus")
+  tx_tab_i_total$Taxonomy = as.character(tx_tab_i_total$Taxonomy)
+  tx_tab_i_total$Taxonomy[is.na(tx_tab_i_total$Taxonomy)] = "UNCLASSIFIED"
   
+  # Check reads per taxrank
+  temp_i = pstab[[tax_rank]]
+  temp_i[is.na(temp_i)] = "UNCLASSIFIED"
+  reads_df_i = aggregate(data=pstab, pstab$total_count ~ temp_i, sum)
+  colnames(reads_df_i) = c("Taxonomy", "nr_reads_total")
+  # Combine
+  tx_tab_i_total = merge(tx_tab_i_total, reads_df_i)
   
-  ddi = data.frame(table(pstab[[tax_rank]]))
-  colnames(ddi) = c("Taxonomy", "nr_members")
+  # select topN - most reads
+  tx_tab_i_topN_reads = tx_tab_i_total[order(tx_tab_i_total$nr_reads_total, decreasing = T)[1:min(nrow(tx_tab_i_total),topN_search)],]
+  tx_tab_i_topN_otus = tx_tab_i_total[order(tx_tab_i_total$nr_otus, decreasing = T)[1:min(nrow(tx_tab_i_total),topN_search)],]
+  topN=topN_search
+  tx_tab_i_topN = rbind(tx_tab_i_topN_reads, tx_tab_i_topN_otus)
+  tx_tab_i_topN = tx_tab_i_topN[!duplicated(tx_tab_i_topN$Taxonomy),]
+
+  rest_row = data.frame("Taxonomy" = paste0("OTHER_", toupper(tax_rank),"_sum"),
+              "nr_otus"=sum(tx_tab_i_total$nr_otus[!row.names(tx_tab_i_total) %in% row.names(tx_tab_i_topN)]),
+              "nr_reads_total"=sum(tx_tab_i_total$nr_reads_total[!row.names(tx_tab_i_total) %in% row.names(tx_tab_i_topN)]))
   
-  top10 = ddi[order(ddi$nr_members, decreasing = T)[1:min(minprint,nrow(ddi))],]
-  
-  if (nrow(ddi) < minprint){
-    myc = "Taxa with number of members"
-  } else {
-    myc = paste("Top",minprint,"taxa with most members")
+  if (rest_row$nr_reads_total > 0){
+      tx_tab_i_topN = rbind(tx_tab_i_topN, rest_row)
   }
+
+  tx_tab_i_topN$Taxonomy = as.character(tx_tab_i_topN$Taxonomy)
+
+  tx_tab_i_topN = tx_tab_i_topN[tx_tab_i_topN$nr_reads_total > 0,]
+  tx_tab_i_topN$nr_otus_rela = round(tx_tab_i_topN$nr_otus/sum(tx_tab_i_topN$nr_otus)*100, 2)
+  tx_tab_i_topN$nr_reads_rela = round(tx_tab_i_topN$nr_reads_total/sum(tx_tab_i_topN$nr_reads_total)*100, 2)
+  tx_tab_i_topN = tx_tab_i_topN[order(tx_tab_i_topN$nr_reads_total, decreasing = F),]
   
-  kbt = kable(top10, caption = myc, col.names = c(tax_rank, "nr_members"),
-              row.names = FALSE, )
-  
+  tx_tab_i_topN$Taxonomy = factor(tx_tab_i_topN$Taxonomy, levels=tx_tab_i_topN$Taxonomy)
+
+  myc = paste(nrow(tx_tab_i_topN),"taxa with most OTU|reads")
+
+  # 1. Table
+  kbt = kable(tx_tab_i_topN[order(tx_tab_i_topN$nr_otus, tx_tab_i_topN$nr_reads_total, decreasing = T),], caption = myc, col.names = c(tax_rank, "nr_OTU", "nr_total_reads", "OTU(%)", "reads(%)"),row.names = FALSE)
   tb_list[[tax_rank]] = kbt
   
-  di = data.frame(table(table(pstab[[tax_rank]])))
-  di$Var1 = as.numeric(as.character(di$Var1))
-  colnames(di) = c("Members", "Taxa")
+  # 2. OTUs per taxon 
+  default_cols <- scales::hue_pal()(length(levels(tx_tab_i_topN$Taxonomy)))
+  default_cols[grepl("^UNCLASS", levels(tx_tab_i_topN$Taxonomy))] = "black"
+  default_cols[grepl("^OTHER_", levels(tx_tab_i_topN$Taxonomy))] = "lightgrey"
   
-  if (nrow(di) > minprint && (sum(di$Taxa[1:5]) > sum(tail(di$Taxa)))){
-    di$Members[di$Members > 100] = 101
-    pl=   ggplot(data=di, aes(x = Members, y=Taxa)) + geom_col() + 
-      ggtitle(tax_rank) + xlab("Members per Taxa (100+ is grouped)") +
-      ylab("Taxa (freq)")
+  # not interesting for species
+  pl1data=tx_tab_i_topN
+  pl1cols=default_cols
+  pl1myc = myc
+  tax_order = tx_tab_i_topN$Taxonomy[order(tx_tab_i_topN$nr_otus, tx_tab_i_topN$nr_reads_total, decreasing = T)]
+  if (grepl("^s", tax_rank)){
+      pl1data = tx_tab_i_topN[!grepl("^OTHER|^UNCLASSIFIED", tx_tab_i_topN$Taxonomy),]
+      pl1cols=scales::hue_pal()(length(levels(tx_tab_i_topN$Taxonomy)))
+      # pl1myc = paste0(myc, "\nNOTE: only top ", topN, " shown")
+  }
+  
+  pl1 = ggplot(data=pl1data, aes(x = Taxonomy, y=nr_otus, , fill=Taxonomy)) + 
+  geom_col() + ggtitle(paste(tax_rank, " - Number of OTUs"), subtitle = paste0("Shown: ", pl1myc)) + 
+  coord_flip() + scale_fill_manual(values = pl1cols) +  theme_minimal()
+  
+  pl_otus_list[[tax_rank]] = pl1
+  
+  # 2. Read counts per taxon
+  pl2 = ggplot(data=tx_tab_i_topN, aes(x = Taxonomy, y=nr_reads_total, fill=Taxonomy)) + 
+  geom_col() + ggtitle(paste(tax_rank, " - Total number of reads"), subtitle = paste0("Shown: ", myc)) + 
+  coord_flip() + scale_fill_manual(values = default_cols) + theme_minimal() 
+  # Store in list
+  pl_reads_list[[tax_rank]] = pl2
+  
+  # 3. Scatter readcounts ~ nr_otus
+  sc_pl = tx_tab_i_topN[!grepl("^OTHER|^UNCLASSIFIED", tx_tab_i_topN$Taxonomy),]
+  pl3 = ggplot(data=sc_pl[!is.na(sc_pl$Taxonomy),], aes(x = nr_reads_total , y= nr_otus, color=Taxonomy, label=Taxonomy)) + 
+  ggtitle(paste(tax_rank, " - within tax-rank OTU spread"), subtitle = paste0("Shown: ", myc)) + coord_flip() + geom_label(size=2, alpha=0.5) +
+    theme(legend.position="bottom")
+  pl_scatter_list[[tax_rank]] = pl3
+  
+  # 4. unique OTUs per taxon
+  # This is only informative for species
+  if (grepl("^s", tax_rank)){
+    otu_count_tab_i = data.frame(table(table(pstab[[tax_rank]])))
+    otu_count_tab_i$Var1 = as.numeric(as.character(otu_count_tab_i$Var1))
+    colnames(otu_count_tab_i) = c("nr_otus", "nr_taxa")
+    otu_count_tab_i$type = "Annotated"
+    
+    otu_count_tab_i$nr_otus[otu_count_tab_i$nr_otus > 100] = 101
+    pl =   ggplot(data=otu_count_tab_i, aes(x = nr_otus, y=nr_taxa)) + geom_col() + 
+    ggtitle(paste0(tax_rank,  " - #OTU per taxon"), subtitle = "Note that unclassified OTUs are NOT included") + xlab("#OTUs per taxon (100+ is grouped)") +
+    ylab("#taxa")
     
     pl_list[[tax_rank]] = pl
-  } 
-  
+  }
   
 }
 
-
 ```
 
 
-```{r}
-tb_list
+## Taxonomy in function of OTU variation
+
+- OTU variation = number of distinct OTUs per taxon
+- For **non-species taxonomic ranks** this _might_ indicate the diversity of the taxon in the dataset
+- For the **species level** this indicates intra-specific variation in the amplicon (either artifacts/errors/noise or biological)
+  - When a lot of amplicons exist for a single species this might require more detailed investigation.
+
+```{r fig.width=10, fig.height=5, fig.align='center', echo=F}
+pl_otus_list
 ```
 
+### Number of OTUs with unique species annotation
 
+- The more OTUs have a unique species annotation the "better" the amplicon performed for your data.
 
-```{r}
+```{r, echo=F, fig.align='center'}
 pl_list
+```
+
+
+## Taxonomy in function of TOTAL number of reads
+
+- Highlight the taxa most supported by number of reads.
+
+```{r fig.width=10, fig.height=5, echo=F, fig.align='center'}
+
+pl_reads_list
+
+```
+
+## Taxonomy in function of OTU variation and TOTAL number of reads
+
+- Combine the OTU variation with the number of reads for each taxon in 2D
+
+```{r, fig.width=10, fig.height=8, echo=F, fig.align='center'}
+pl_scatter_list$species
+```
+
+
+## Taxonomy tables
+
+- Tables with most occurring taxonomies on each rank
+- Most occurring is defined in OTU variation and in number of reads
+- Note that not all taxons with a lot of reads are also diverse, and vice versa
+  - Taxonomic resolution of amplicon can be different ~ taxonomic group
+
+```{r, echo=F, results='asis'}
+
+for (ttab in tb_list){
+  print(ttab)
+}
+
+```
+
+# More questions?
+
+You can quite easily load the data into an R session using gendiver:
+
+- https://github.com/inbo/gendiver
+
+Use the following links/paths:
+
+NOTE: you can replace PATHS with the URL of files on the GDRIVE!
+
+- `params$SAMPLE_SHEET_URL`: `r params$SAMPLE_SHEET_URL`
+- `params$OTU_PATH`: `r params$OTU_PATH`
+- `params$TAX_PATH`: `r params$TAX_PATH`
+- `params$FASTA_PATH`: `r params$FASTA_PATH`
+
+Examples to load in data (see also INPUT segment of this report):
+
+```{r example-load, eval=F, echo = T}
+# Load custom R-pkg
+library(gendiver)
+
+my_sample_data = read.sample_sheet_lab(params$SAMPLE_SHEET_URL)
+
+my_otu_tab = read.otu_table_vsearch(params$OTU_PATH)
+
+my_tax_tab = read.taxonomy_sintax(params$TAX_PATH)
+
+my_seqs = read.fastx_gdrive(params$FASTA_PATH)
+
 ```
 

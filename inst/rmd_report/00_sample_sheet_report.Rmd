@@ -16,8 +16,8 @@ output:
     toc_float: true
 urlcolor: blue
 params: 
-  SAMPLE_SHEET_URL: "https://docs.google.com/spreadsheets/d/1lXQcZKtutQtjtB6VN9HEWOyPGvGX7023IkEd-eElfvY/edit?gid=1517442097#gid=1517442097"
-  BC_OUT_DIR: "ddddd"
+  SAMPLE_SHEET_URL: "SAMPLE_SHEET_URL"
+  BC_OUT_DIR: "BC_OUT_DIR"
 ---
 
 ```{r user-input, echo=F}
@@ -118,7 +118,7 @@ kable(table(sample_metadata$PROJECT,
 
 ```{r pool-tables, echo=F, fig.pos='H'}
 # XXX per pool
-make.combi_table = function(sample_metadata, group=1, view=c(2,4,8,14)) {
+make.combi_table = function(sample_metadata, group=1, view=c("MATRIX", "PROJECT", "ANALYSE_TYPE","PRIMERS")) {
   
   tlist = as.list(1:length(view))
   tcols = as.list(1:length(view))
@@ -240,7 +240,7 @@ if (BARCODE_CHECK==TRUE){
   print("INFO: Writing barcode files")
   outdir=params$BC_OUT_DIR
   dir.create(outdir)
-  gendiver::write.barcode_files(sample_metadata, out_dir = outdir)
+  gendiver::write.barcode_files(sample_metadata, out_dir = outdir, LIB_COL = "LIBRARY_CODE")
 }
 
 ```
