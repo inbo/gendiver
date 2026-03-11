@@ -131,7 +131,7 @@ Plotting the demultiplexed read_counts per sample, per POOL
 - Empty samples/amplicon are in front per POOL
 
 ```{r echo=FALSE}
-sfigh = min( 199, nrow(read_count_track.df)*0.2)
+sfigh = min( 150, nrow(read_count_track.df)*0.2)
 rc.df = read_count_track.df[read_count_track.df$type %in% c("demultiplexed_R1", "unknown_round2_1"),]
 rownames(rc.df) = gsub("_R1.fastq.gz" , "", rc.df$file_name)
 rc.df=rc.df[,"read_count", drop=F]
@@ -141,7 +141,7 @@ sample_sheet = sample_sheet[-1]
 ```
 
 
-```{r fig.height=sfigh, fig.width=25, echo=F}
+```{r p_demult_per_sample, fig.height=sfigh, fig.width=25, echo=F}
 
 sample_order_filtered=sample_sheet$UNIQUE_SAMPLE_CODE[order(sample_sheet$LIBRARY_CODE, sample_sheet$read_count)]
 p_summary = summary(sample_sheet$read_count)
@@ -161,7 +161,7 @@ p_demult_per_sample
 - Check the generated supplement `.pdf`
 
 
-```{r echo=F}
+```{r ggsave, echo=F}
 ggfname=paste0("demultiplex-QC-report-supplement-fig.pdf")
 ggoutp = file.path(params$OUT_DIR,ggfname)
 print(ggfname)
@@ -214,7 +214,7 @@ pl_plot + scale_alpha_continuous(transform="log10")
 type.tb = table(sample_sheet$ANALYSE_TYPE)
 type.tb
 
-controls = names(type.tb)[names(type.tb) != "Metabarcoding"]
+controls = names(type.tb)[! grepl("Metabarcoding|eDNA",names(type.tb))]
 
 control_plots = as.list(controls, controls)
 names(control_plots) = controls
@@ -255,7 +255,9 @@ Inspect if certain barcodes perform consistently better/worse (per POOL)
 sample_sheet$BARCODE_F_PRIMER = factor(sample_sheet$BARCODE_F_PRIMER)
 bc_pool_df = aggregate(data=sample_sheet, read_count ~ WELL_ROW + WELL_COLUMN + LIBRARY_CODE + BARCODE_F_PRIMER + SAMPLE_TYPE, sum)
 
-bc_pool_df = merge(bc_pool_df, pp_demu, by.x = "LIBRARY_CODE", by.y = "multiplexed_source", suffixes = c("", "_pool"))
+bc_pool_total = aggregate(data=sample_sheet, read_count ~ LIBRARY_CODE, sum)
+
+bc_pool_df = merge(bc_pool_df, bc_pool_total, by="LIBRARY_CODE", suffixes = c("", "_pool"))
 bc_pool_df$percent = (bc_pool_df$read_count / bc_pool_df$read_count_pool )* 100
 # bc_order = aggregate(data=bc_pool_df, read_count~BARCODE_F_PRIMER, sum)
 # bc_order_x =  bc_order$BARCODE_F_PRIMER[order(bc_order$read_count)]

@@ -16,7 +16,7 @@
 #' @examples
 #' #To add
 read.summary_files_demultiplex = function(data_dir,
-                                          summary_file_pattern = "_stats.tsv",
+                                          summary_file_pattern = "stats.tsv",
                                           legacy_mode=F){
   # Initialize readcount tracking df
   read_count_track.df = data.frame("file_name" = character(),
