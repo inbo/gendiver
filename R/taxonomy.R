@@ -140,15 +140,13 @@ parse_tax_string = function(x, is_pred=F){
   # split taxon-levels ,
   xspl = unlist(strsplit(x, ","))
 
-  # Per taxon level, split key:value
-  xcol = data.frame(strsplit(xspl, ":"))
-  # Format and return
-  colnames(xcol) = xcol[1,]
-  xcol = xcol[-1,, drop=FALSE]
-  row.names(xcol) = NULL
-
+  # name to first letter
+  names(xspl) = sapply(xspl, substr,1,1)
+  # remove 2 first chars -> designete taxonomy "n:"
+  xspl = gsub("^.:", "", xspl)
+  xcol = as.data.frame.list(xspl)
   if (is_pred){
-    mycols = colnames(xcol)
+    mycols = names(xspl)
     xcol_bs = stringr::str_extract(xspl, "\\d+\\.\\d+")
     # remove pred
     xcol_tax = vapply(strsplit(as.character(xcol[1,]), "\\("), `[`, 1, FUN.VALUE=character(1))
