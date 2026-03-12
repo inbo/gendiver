@@ -138,6 +138,9 @@ otu_tot_rc = rowSums(otu_df)
 tax_df_rc$read_count = NA
 tax_df_rc[names(otu_tot_rc), c("read_count")] = otu_tot_rc
 
+# remove taxonomy not in OTU table
+tax_df_rc = tax_df_rc[!is.na(tax_df_rc$read_count),]
+
 tb_rc = sapply(colnames(tax_df), function(x) sum(tax_df_rc$read_count[!is.na(tax_df_rc[[x]])]))
 annot_overview2 = tb_rc[names(tb_rc) != "custom_taxon"]
 annot_overview2 = c(sum(tax_df_rc$read_count), annot_overview2)
@@ -146,6 +149,8 @@ barplot(annot_overview2, main="Taxonomy assignments overview - READS", ylab = "N
 print(annot_overview2, row.names = F)
 
 # Sequence length
+# remove sequences not in OTU table
+seqs = seqs[rownames(otu_df)]
 asv_lengths = width(seqs)
 
 hist(asv_lengths, breaks = 100, main = "All data: OTU seq length", sub=basename(fasta_path) ,xlab = "Length (bp)")
