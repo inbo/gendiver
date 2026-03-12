@@ -103,7 +103,19 @@ add_custom_taxonomy = function(taxonomy_df, fillNA=F){
   return(taxonomy_df)
 }
 
-# Clean MIDORI2 raw
+# clean unrsolved
+clean_NA_taxonomies = function(tax_df, unk_pattern="unresolv|unknown|unclassif|undefin|uncertain|unassign"){
+  mask_unk = sapply(tax_df, function(x) grepl(unk_pattern,x))
+  tax_df[mask_unk] = NA
+
+  # Extra
+  tax_df[tax_df == "NA"] = NA
+  tax_df[tax_df == ""] = NA
+
+  return(tax_df)
+}
+
+# (Try to) Clean taxonomies
 clean_taxonomies = function(tabraw){
   tabraw = lapply(tabraw, gsub, pattern = "_\\d+", replacement = "")
   tabraw = lapply(tabraw, gsub, pattern = "species_", replacement = "")
@@ -115,9 +127,7 @@ clean_taxonomies = function(tabraw){
   tabraw = lapply(tabraw, gsub, pattern = ".* sp\\. .*", replacement = "")
 
   out = as.data.frame(tabraw)
-  out[out == "NA"] = NA
-  out[out == ""] = NA
-
+  out = clean_NA_taxonomies(out)
   return(out)
 }
 
