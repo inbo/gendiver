@@ -127,7 +127,7 @@ prepro_df$toolname = factor(prepro_df$toolname, levels=(unique(prepro_df$toolnam
 
 - Pre-processing success run-level (amplicon specific)
 
-```{r echo=F}
+```{r calc-total, echo=F}
 # Calculate success %
 preprocess_total_reads=sum(prepro_df$read_count[grepl("filter", prepro_df$type) ])
 preprocess_success_percent = round(preprocess_total_reads / total_demultiplexed_input *100, 2)
@@ -158,7 +158,7 @@ p_overview
 
 ## Pre-processing success per POOL
 
-```{r, echo=F}
+```{r pp-success, echo=F}
 for (stepi in levels(prepro_df$toolname)){
   tempdf = prepro_df[prepro_df$toolname == stepi,c("read_count", "sample_id")]
   colnames(tempdf) = c(paste0("read_count.", stepi),"UNIQUE_SAMPLE_CODE")
@@ -203,14 +203,14 @@ Plotting the pre-processed read_counts per sample/amplicon
 
 - Summary statistics on all samples/amplicons:
 
-```{r echo=F}
+```{r sum-sts, echo=F}
 filter_counts = prepro_df$read_count[grepl("filter", prepro_df$type)]
 summary(filter_counts)
 ```
 
 - Quantiles in more detail:
 
-```{r echo=F}
+```{r qtiles, echo=F}
 kable(floor(quantile(filter_counts, seq(0.05,0.95,0.05))), col.names = c("Quantile", "Readcounts"))
 ```
 
@@ -219,7 +219,7 @@ kable(floor(quantile(filter_counts, seq(0.05,0.95,0.05))), col.names = c("Quanti
 ```{r prep-plot, echo=F}
 prepro_df = merge(prepro_df, sample_sheet[, c("UNIQUE_SAMPLE_CODE", "LIBRARY_CODE")], by.x="sample_id", by.y="UNIQUE_SAMPLE_CODE")
 
-sfigh = max(table(sample_sheet$LIBRARY_CODE)) * 0.2
+sfigh = min(150, max(table(sample_sheet$LIBRARY_CODE)) * 0.2)
 
 qcplot.preprocessing_sample = function(prepro_df){
   ## PER SAMPLE READCOUNT tracking
@@ -274,7 +274,7 @@ return(list(p_sample_overview, p_sample_overview_percent))
 }
 ```
 
-```{r fig.height=sfigh, fig.width=20, echo=F, results='asis'}
+```{r per-pool-pp-plot, fig.height=sfigh, fig.width=20, echo=F, results='asis'}
 
 for (POOL in unique(prepro_df$LIBRARY_CODE)){
   pool_p = qcplot.preprocessing_sample(prepro_df[prepro_df$LIBRARY_CODE == POOL,])
@@ -291,7 +291,7 @@ for (POOL in unique(prepro_df$LIBRARY_CODE)){
 
 - Using the readcounts per amplicon after pre-processing (`filter`)
 
-```{r, echo=FALSE}
+```{r prep-hm, echo=FALSE}
 sample_sheet$PLATE = paste0(sample_sheet$PRIMERS, ":", sample_sheet$PLATE_NOTES)
 sample_sheet$SAMPLE_TYPE = paste0(sample_sheet$PROJECT,":", sample_sheet$PRIMERS)
 sample_sheet$SAMPLE_TYPE[sample_sheet$ANALYSE_TYPE_CODE < 999 ] = sample_sheet$ANALYSE_TYPE[sample_sheet$ANALYSE_TYPE_CODE < 999]
@@ -334,21 +334,21 @@ pl_p + scale_alpha_continuous(transform="log10")
 
 ## Readcounts per CONTROL
 
-```{r echo = F}
+```{r prep-c, echo = F}
 type.tb = table(sample_sheet$ANALYSE_TYPE)
 type.tb
 
-controls = names(type.tb)[names(type.tb) != "Metabarcoding"]
+controls = names(type.tb)[! grepl("Metabarcoding|eDNA",names(type.tb))]
 
 control_plots = as.list(controls, controls)
 names(control_plots) = controls
 
-fH = max(type.tb[controls])*0.5
+fH = min(150, max(type.tb[controls])*0.5)
 ```
 
 
 
-```{r fig.height=fH, fig.width=20, echo=F, results='asis'}
+```{r plot-c, fig.height=fH, fig.width=20, echo=F, results='asis'}
 
 for (typei in controls){
   cdata_samples = sample_sheet$UNIQUE_SAMPLE_CODE[sample_sheet$ANALYSE_TYPE == typei]
@@ -364,7 +364,7 @@ for (typei in controls){
 
 - If there are more run/data specific questions regarding the pre-processing, please find the supplementary table and investigate as you like!
 
-```{r echo=FALSE}
+```{r supp-tab, echo=FALSE}
 tfname=paste0("preprocess-QC-report-supplement-table.csv")
 tfoutp = file.path(params$OUT_DIR, tfname)
 print(tfname)
@@ -375,6 +375,6 @@ write.table(sample_sheet, file = tfoutp, sep=",", row.names = F)
 ```
 - You can read this in R with:
 
-```{r, eval=F}
+```{r show-ex, eval=F}
 mydf = read.csv("preprocess-QC-report-supplement-table.csv", header=T)
 ```
