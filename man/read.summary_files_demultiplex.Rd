@@ -6,7 +6,7 @@
 \usage{
 read.summary_files_demultiplex(
   data_dir,
-  summary_file_pattern = "_stats.tsv",
+  summary_file_pattern = "stats.tsv",
   legacy_mode = F
 )
 }
