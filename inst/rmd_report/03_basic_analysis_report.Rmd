@@ -15,7 +15,7 @@ output:
     toc: true
     toc_float: true
 urlcolor: blue
-params: 
+params:
   SAMPLE_SHEET_URL: "URL-sample-sheet"
   TAX_PATH: "TAX-result"
   OTU_PATH: "OTU-table"
@@ -138,6 +138,9 @@ otu_tot_rc = rowSums(otu_df)
 tax_df_rc$read_count = NA
 tax_df_rc[names(otu_tot_rc), c("read_count")] = otu_tot_rc
 
+# remove taxonomy not in OTU table
+tax_df_rc = tax_df_rc[!is.na(tax_df_rc$read_count),]
+
 tb_rc = sapply(colnames(tax_df), function(x) sum(tax_df_rc$read_count[!is.na(tax_df_rc[[x]])]))
 annot_overview2 = tb_rc[names(tb_rc) != "custom_taxon"]
 annot_overview2 = c(sum(tax_df_rc$read_count), annot_overview2)
@@ -146,6 +149,8 @@ barplot(annot_overview2, main="Taxonomy assignments overview - READS", ylab = "N
 print(annot_overview2, row.names = F)
 
 # Sequence length
+# remove sequences not in OTU table
+seqs = seqs[rownames(otu_df)]
 asv_lengths = width(seqs)
 
 hist(asv_lengths, breaks = 100, main = "All data: OTU seq length", sub=basename(fasta_path) ,xlab = "Length (bp)")
@@ -188,7 +193,7 @@ plot(ID_p$BEST_ID_floor, ID_p$read_count, main = "All data: BEST_IDENTITY per Re
 
 # Taxonomic annotation per SAMPLE/AMPLICON
 
-```{r echo=F}
+```{r pss_plot-prep, echo=F}
 
 tax_df_no_custom=tax_df[,!grepl("custom",colnames(tax_df))]
 max_rank = function(x) if (sum(!is.na(x)) > 0) colnames(tax_df_no_custom)[max(which(!is.na(x)))] else "_root"
@@ -220,14 +225,14 @@ pss_plot = ggplot(data=otu_df_rank, aes(x=USI, y=read_count, fill = max_tax_rank
 sfigh = min(150, ncol(otu_df)*0.2)
 ```
 
-```{r fig.height=sfigh, fig.width=20, echo=F, fig.align='center'}
+```{r pss_plot, fig.height=sfigh, fig.width=20, echo=F, fig.align='center'}
 pss_plot
 ```
 
 - This might be quite small for the number of samples/amplicons
 - Check the generated supplement `.pdf`
 
-```{r echo=F}
+```{r pss_plot-ggsave, echo=F}
 ggfname=paste0("operational-data-QC-report-supplement-fig.pdf")
 ggoutp = file.path(params$OUT_DIR,ggfname)
 print(ggfname)
@@ -406,7 +411,7 @@ ps_topX = tax_glom(ps_topX, "custom_taxon")
 - Only look at top `r x_cutoff` top abundant ASVs (reads) to reduce data -> this amounts to `r round(sum(taxa_sums(ps_topX))/sum(taxa_sums(ps_samples)) *100, 2)`% of data
 - group on custom taxonomy
 
-```{r, fig.height=25, fig.width=30, warning=F, echo=F, , fig.align='center'}
+```{r plot_bar, fig.height=25, fig.width=30, warning=F, echo=F, , fig.align='center'}
 normalized_ps = transform_sample_counts(ps_topX, function(OTU) OTU/sum(OTU) * 100)
   
 plot_bar(normalized_ps, fill = "custom_taxon", x="INDIVIDUAL_CODE") + 
@@ -563,7 +568,7 @@ for (tax_rank in tax_levels){
 - For the **species level** this indicates intra-specific variation in the amplicon (either artifacts/errors/noise or biological)
   - When a lot of amplicons exist for a single species this might require more detailed investigation.
 
-```{r fig.width=10, fig.height=5, fig.align='center', echo=F}
+```{r pl_otus_list, fig.width=10, fig.height=5, fig.align='center', echo=F}
 pl_otus_list
 ```
 
@@ -571,7 +576,7 @@ pl_otus_list
 
 - The more OTUs have a unique species annotation the "better" the amplicon performed for your data.
 
-```{r, echo=F, fig.align='center'}
+```{r pl_list, echo=F, fig.align='center'}
 pl_list
 ```
 
@@ -580,7 +585,7 @@ pl_list
 
 - Highlight the taxa most supported by number of reads.
 
-```{r fig.width=10, fig.height=5, echo=F, fig.align='center'}
+```{r pl_reads_list, fig.width=10, fig.height=5, echo=F, fig.align='center'}
 
 pl_reads_list
 
@@ -590,7 +595,7 @@ pl_reads_list
 
 - Combine the OTU variation with the number of reads for each taxon in 2D
 
-```{r, fig.width=10, fig.height=8, echo=F, fig.align='center'}
+```{r pl_scatter_list, fig.width=10, fig.height=8, echo=F, fig.align='center'}
 pl_scatter_list$species
 ```
 
@@ -602,7 +607,7 @@ pl_scatter_list$species
 - Note that not all taxons with a lot of reads are also diverse, and vice versa
   - Taxonomic resolution of amplicon can be different ~ taxonomic group
 
-```{r, echo=F, results='asis'}
+```{r tb_list, echo=F, results='asis'}
 
 for (ttab in tb_list){
   print(ttab)
