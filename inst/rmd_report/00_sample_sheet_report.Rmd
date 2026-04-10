@@ -34,27 +34,39 @@ print(params)
 ```{r gs4-auth, message=FALSE, echo=F}
 googlesheets4::gs4_auth(T)
 
-ss.df = googlesheets4::read_sheet(SS_URL)
+ss.df = data.frame(googlesheets4::read_sheet(SS_URL))
+
+# Remove NA rows
+ss.df[ss.df == "#N/A"] = NA
 ```
+
+
 
 \break
 
-# `r unique(ss.df$run)`
+# `r unique(ss.df$run[!is.na(ss.df$run)])`
 
 Used sample sheet link:
 
 - `r knitr::asis_output(SS_URL)`
 
-## INFO: number of PCR-amplicons
+## INFO: number of rows with USI
 
-- Number of PCR-amplicons: `r nrow(ss.df)`
+- Number of rows in sample_sheet **total**: `r nrow(ss.df)`
+- Number of rows in sample_sheet **with** unique_sample_code field: `r sum(!is.na(ss.df$unique_sample_code))`
+- Number of rows in sample_sheet **without** unique_sample_code field: `r sum(is.na(ss.df$unique_sample_code))`
 
-## CHECK: USI codes are unique
+```{r rm-NA}
+ss.df = ss.df[!is.na(ss.df$unique_sample_code),]
+```
+
+## CHECK: are the USI codes unique?
 
 USI = `unique_sample_code`
 
-- Number of **duplicated** USI: `r sum(duplicated(ss.df$unique_sample_code))`
-- Number of **unique** USI: `r sum(!duplicated(ss.df$unique_sample_code))`
+- Number of PCR-amplicons/rows with **duplicated** USI: `r sum(duplicated(ss.df$unique_sample_code))`
+- Number of PCR-amplicons/rows with **unique** USI: `r sum(!duplicated(ss.df$unique_sample_code))`
+
 
 ```{r USI-check, message=F, echo=F}
 
@@ -130,13 +142,13 @@ make.combi_table = function(sample_metadata, group=1, view=c("MATRIX", "PROJECT"
   
   combi_table = do.call(cbind, tlist)
   
-  colnames(combi_table) = unlist(tcols)
+  # colnames(combi_table) = unlist(tcols)
   
   return(combi_table)
 }
 
-make.combi_table(sample_metadata)
-
+tt = make.combi_table(sample_metadata)
+kable(tt)
 ```
 
 
@@ -203,7 +215,7 @@ if ( sum(rowSums(plate_tab) > 96) > 1 ){
   print("PLATE_NOTES seems to reflect real plate (max 96 wells) -> OK!")
 }
 
-plh=length(unique(sample_metadata$PLATE_NOTES))
+plh=max(3, length(unique(sample_metadata$PLATE_NOTES)))
 ```
 \break
 
