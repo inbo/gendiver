@@ -183,7 +183,7 @@ sample_sheet$WELL_COLUMN = as.factor(sample_sheet$WELL_COLUMN)
 mycols = length(unique(sample_sheet$PRIMERS))
 
 # some extra for next chunk
-plh=length(unique(sample_sheet$PLATE_NOTES))
+plh=length(unique(sample_sheet$PLATE_NOTES)) *1.5
 ```
 
 

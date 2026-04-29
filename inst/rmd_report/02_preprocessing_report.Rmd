@@ -219,7 +219,7 @@ kable(floor(quantile(filter_counts, seq(0.05,0.95,0.05))), col.names = c("Quanti
 ```{r prep-plot, echo=F}
 prepro_df = merge(prepro_df, sample_sheet[, c("UNIQUE_SAMPLE_CODE", "LIBRARY_CODE")], by.x="sample_id", by.y="UNIQUE_SAMPLE_CODE")
 
-sfigh = min(150, max(table(sample_sheet$LIBRARY_CODE)) * 0.2)
+sfigh = min(150, max(table(sample_sheet$LIBRARY_CODE)) * 0.5)
 
 qcplot.preprocessing_sample = function(prepro_df){
   ## PER SAMPLE READCOUNT tracking
@@ -302,7 +302,7 @@ sample_sheet$LABEL[sample_sheet$ANALYSE_TYPE_CODE == 999] = ""
 sample_sheet$WELL_COLUMN = as.factor(sample_sheet$WELL_COLUMN)
 mycols = length(unique(sample_sheet$PRIMERS))
 
-figh = length(unique(sample_sheet$PLATE))
+figh = length(unique(sample_sheet$PLATE_NOTES)) * 4
 ```
 
 - Map readcounts per WELL to **check overall read distribution**
@@ -343,7 +343,7 @@ controls = names(type.tb)[! grepl("Metabarcoding|eDNA",names(type.tb))]
 control_plots = as.list(controls, controls)
 names(control_plots) = controls
 
-fH = min(150, max(type.tb[controls])*0.5)
+fH = min(150, max(type.tb[controls])*0.2)
 ```
 
 
