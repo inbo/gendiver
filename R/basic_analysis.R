@@ -2,6 +2,9 @@
 ### Basic Analysis ###
 ######################
 
+
+
+
 # Legacy function to make a barplot for a given taxon based on a phyloseq object (code from Annelies Haegeman via e-mail)
 # ps_barplot_annelies = function(ps, tax_rank="species"){
 #   #reorder taxa according to abundance values, for this we need to convert the phyloseq object to a (long) dataframe
