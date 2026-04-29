@@ -85,8 +85,8 @@ add_custom_taxonomy = function(taxonomy_df, fillNA=F){
   }
   taxonomy_df$custom_taxon = taxonomy_df$class
   taxonomy_df$custom_taxon[taxonomy_df$genus == "Homo"] = "Human"
-  taxonomy_df$custom_taxon[taxonomy_df$custom_taxon == "Mammalia"] = "non-human mammal"
-  taxonomy_df$custom_taxon[taxonomy_df$custom_taxon == "Aves"] = "Bird"
+  taxonomy_df$custom_taxon[taxonomy_df$custom_taxon == "Mammalia"] = "Non-human mammals"
+  taxonomy_df$custom_taxon[taxonomy_df$custom_taxon == "Aves"] = "Birds"
   taxonomy_df$custom_taxon[taxonomy_df$custom_taxon == "Actinopteri"] = "Fish"
   taxonomy_df$custom_taxon[taxonomy_df$custom_taxon == "Hyperoartia"] = "Fish"
   taxonomy_df$custom_taxon[taxonomy_df$custom_taxon == "Amphibia"] = "Amphibians"
