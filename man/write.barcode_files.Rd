@@ -21,6 +21,8 @@ Loop over all multiplexed sample names (POOLS) and write TSV with USI - barcodes
 Check the lab-sample-sheet you use that each USI-barcode combination is UNIQUE!
 }
 \examples{
-my_sample_data_df = read.sample_sheet_lab("1cWkVqk3y7668OVRhIlpa0fUmTh4oJTRWUqp60GRJ5J8")
-write.barcode_files(my_sample_data_df, out_dir=tempdir())
+# example on public available data
+# googlesheets4::gs4_deauth()
+# my_sample_data_df = read.sample_sheet_lab("1cWkVqk3y7668OVRhIlpa0fUmTh4oJTRWUqp60GRJ5J8")
+# write.barcode_files(my_sample_data_df, out_dir=tempdir())
 }

@@ -16,6 +16,7 @@ Very basic cleaned and formatted dataframe from lab-sample-sheet
 All purpose starting point for reading the lab sample_sheet.
 }
 \examples{
-# If access to INBO GDRIVE, run:
-my_sample_data_df = read.sample_sheet_lab("1cWkVqk3y7668OVRhIlpa0fUmTh4oJTRWUqp60GRJ5J8")
+# example on public available data
+# googlesheets4::gs4_deauth()
+# my_sample_data_df = read.sample_sheet_lab("1cWkVqk3y7668OVRhIlpa0fUmTh4oJTRWUqp60GRJ5J8")
 }

@@ -20,8 +20,9 @@ clean_colnames = function(x){
 #' @export
 #'
 #' @examples
-#' # If access to INBO GDRIVE, run:
-#' my_sample_data_df = read.sample_sheet_lab("1cWkVqk3y7668OVRhIlpa0fUmTh4oJTRWUqp60GRJ5J8")
+#' # example on public available data
+#' # googlesheets4::gs4_deauth()
+#' # my_sample_data_df = read.sample_sheet_lab("1cWkVqk3y7668OVRhIlpa0fUmTh4oJTRWUqp60GRJ5J8")
 read.sample_sheet_lab = function(sample_metadata_path){
   # 1. read xlsx file or GSHEET and convert to dataframe
   if (file.exists(sample_metadata_path)){
@@ -58,8 +59,10 @@ read.sample_sheet_lab = function(sample_metadata_path){
 #' @export
 #'
 #' @examples
-#' my_sample_data_df = read.sample_sheet_lab("1cWkVqk3y7668OVRhIlpa0fUmTh4oJTRWUqp60GRJ5J8")
-#' write.barcode_files(my_sample_data_df, out_dir=tempdir())
+#' # example on public available data
+#' # googlesheets4::gs4_deauth()
+#' # my_sample_data_df = read.sample_sheet_lab("1cWkVqk3y7668OVRhIlpa0fUmTh4oJTRWUqp60GRJ5J8")
+#' # write.barcode_files(my_sample_data_df, out_dir=tempdir())
 write.barcode_files = function(lab_sample_sheet, out_dir, LIB_COL=1){
 
   target_col = lab_sample_sheet[,c(LIB_COL)]
