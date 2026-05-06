@@ -80,4 +80,26 @@ read.fastx_gdrive =  function(file_id, tempf=tempfile() , ...){
   return(out)
 }
 
+#' Read sequencing-run overview list (LST002) from Google Drive
+#'
+#' Team Genetic Diversity (INBO) uses the Google Drive as main platform for RDM.
+#' This function reads the sequencing-run overview (LST002) Google sheet.
+#'
+#'@details Can only access this data with a working INBO Google-account, that has sufficient permissions/access.
+#'
+#'@references LST002: \url{https://docs.google.com/spreadsheets/d/1h70fKsQCqPQS5tSQYOwws2zeCJJu9BOlH7mI0xUg5rA}
+#'
+#' @returns Data.frame with LST002 content, all data converted to type character
+#' @export
+#'
+#' @examples
+#' # read.LST002()
+read.LST002 = function(){
+  lst002_df = data.frame(googlesheets4::read_sheet("1h70fKsQCqPQS5tSQYOwws2zeCJJu9BOlH7mI0xUg5rA"))
+  colnames(lst002_df) = clean_colnames(colnames(lst002_df))
 
+  # force every column to be a character as there is some melange
+  lst002_df = data.frame(sapply(lst002_df, as.character))
+
+  return(lst002_df)
+}
