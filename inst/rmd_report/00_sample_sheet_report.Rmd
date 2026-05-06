@@ -215,7 +215,7 @@ if ( sum(rowSums(plate_tab) > 96) > 1 ){
   print("PLATE_NOTES seems to reflect real plate (max 96 wells) -> OK!")
 }
 
-plh=max(3, length(unique(sample_metadata$PLATE_NOTES)))
+plh=max(5, length(unique(sample_metadata$PLATE_NOTES)))
 ```
 \break
 
@@ -231,7 +231,7 @@ mycols = length(unique(sample_metadata$PRIMERS))
 ggplot2::ggplot( data=sample_metadata, ggplot2::aes(
   x = .data$WELL_COLUMN, y=.data$WELL_ROW, fill=.data$SAMPLE_TYPE)) +
 ggplot2::geom_tile(colour = "black", linewidth=0.2) +
-  ggplot2::geom_text(ggplot2::aes(label = LABEL), colour="black", size=2, alpha=0.8) +
+  ggplot2::geom_text(ggplot2::aes(label = LABEL), colour="black", size=4, alpha=0.8) +
 ggplot2::facet_wrap(~.data$PLATE, ncol = 3, scales = "free") +
 ggplot2::scale_x_discrete(limits=factor(c(1:12))) +
 ggplot2::scale_y_discrete(limits=rev) +
