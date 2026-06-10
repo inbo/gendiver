@@ -29,7 +29,10 @@ read.sample_sheet_lab = function(sample_metadata_path){
     sample_metadata = as.data.frame(readxl::read_xlsx(sample_metadata_path))
   } else {
     # try to interpret as google sheets ID-key or URL
-    sample_metadata = as.data.frame(googlesheets4::read_sheet(sample_metadata_path, sheet=1))
+    # Note the columns are all read as character due to inconsistent col types
+    sample_metadata = as.data.frame(googlesheets4::read_sheet(sample_metadata_path,
+                                                              sheet=1,
+                                                              col_types = 'c'))
   }
 
   # 2. clean the colnames, i.e. all caps and no whitespace
