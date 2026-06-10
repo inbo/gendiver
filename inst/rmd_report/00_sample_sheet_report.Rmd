@@ -114,13 +114,17 @@ if (sum(!grepl(unique_sample_code_regex, sample_metadata$UNIQUE_SAMPLE_CODE)) > 
 
 ```{r labwork-overview, echo=F}
 
-sample_metadata$TECHNICAL_REPLICATE_COLLAPSED = sample_metadata$TECHNICAL_REPLICATE
-sample_metadata$TECHNICAL_REPLICATE_COLLAPSED[sample_metadata$TECHNICAL_REPLICATE_COLLAPSED > 3] = "3+"
+sample_metadata$TECHNICAL_REPLICATE_COLLAPSED = as.integer(sample_metadata$TECHNICAL_REPLICATE)
+# sample_metadata$TECHNICAL_REPLICATE_COLLAPSED[sample_metadata$TECHNICAL_REPLICATE_COLLAPSED > 3] = "3+"
 
-kable(table(sample_metadata$PROJECT,
+table1 = as.data.frame(table(sample_metadata$PROJECT,
             sample_metadata$PRIMERS,
             sample_metadata$ANALYSE_TYPE,
-            sample_metadata$TECHNICAL_REPLICATE_COLLAPSED), col.names = c("Project", "Primers","analyse", "replicate","PCR NR"))
+            sample_metadata$TECHNICAL_REPLICATE_COLLAPSED))
+
+table1 = table1[table1$Freq > 0,]
+
+kable(table1, col.names = c("Project", "Primers","analyse", "replicate","PCR NR"))
 
 
 ```
@@ -148,6 +152,8 @@ make.combi_table = function(sample_metadata, group=1, view=c("MATRIX", "PROJECT"
 }
 
 tt = make.combi_table(sample_metadata)
+tt = cbind(table(sample_metadata$LIBRARY_CODE), tt)
+colnames(tt)[1] = "|TOTAL|"
 kable(tt)
 ```
 
@@ -156,7 +162,7 @@ kable(tt)
 
 ```{r pool_rep-table, echo=F}
 
-kable(table(sample_metadata$LIBRARY_CODE, sample_metadata$TECHNICAL_REPLICATE))
+kable(table(sample_metadata$LIBRARY_CODE, as.integer(sample_metadata$TECHNICAL_REPLICATE)))
 
 ```
 
@@ -204,9 +210,11 @@ sample_metadata$SAMPLE_TYPE[sample_metadata$ANALYSE_TYPE_CODE < 999 ] = sample_m
 
 plate_tab = table(sample_metadata$PLATE, sample_metadata$SAMPLE_TYPE)
 
+plate_tab = cbind(table(sample_metadata$PLATE),plate_tab)
+colnames(plate_tab)[1] = "|TOTAL|"
 kable(plate_tab)
 
-if ( sum(rowSums(plate_tab) > 96) > 1 ){
+if ( sum(plate_tab[,1] > 96) > 1 ){
   print("Warning: Some PLATE_NOTES contain more than 96 data-points")
   tt = table(sample_metadata$PLATE_NOTES)
   kable(tt[tt>96], col.names = c("PLATE_NOTES", "Number of samples (>96)"))
@@ -221,7 +229,7 @@ plh=max(5, length(unique(sample_metadata$PLATE_NOTES)))
 
 ## INFO: Plate layout
 
-```{r plate-layout, echo=F, fig.width=15, fig.height=plh}
+```{r plate-layout, echo=F, fig.width=18, fig.height=plh}
 sample_metadata$WELL_COLUMN = as.factor(sample_metadata$WELL_COLUMN)
 sample_metadata$LABEL = sample_metadata$ANALYSE_TYPE
 sample_metadata$LABEL[sample_metadata$ANALYSE_TYPE_CODE == 999] = ""
@@ -231,7 +239,7 @@ mycols = length(unique(sample_metadata$PRIMERS))
 ggplot2::ggplot( data=sample_metadata, ggplot2::aes(
   x = .data$WELL_COLUMN, y=.data$WELL_ROW, fill=.data$SAMPLE_TYPE)) +
 ggplot2::geom_tile(colour = "black", linewidth=0.2) +
-  ggplot2::geom_text(ggplot2::aes(label = LABEL), colour="black", size=4, alpha=0.8) +
+  ggplot2::geom_text(ggplot2::aes(label = LABEL), colour="black", size=3, alpha=0.8) +
 ggplot2::facet_wrap(~.data$PLATE, ncol = 3, scales = "free") +
 ggplot2::scale_x_discrete(limits=factor(c(1:12))) +
 ggplot2::scale_y_discrete(limits=rev) +
