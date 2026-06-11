@@ -112,7 +112,60 @@ if (sum(!grepl(unique_sample_code_regex, sample_metadata$UNIQUE_SAMPLE_CODE)) > 
 
 ## INFO: Overview of sample extracts and lab procedure
 
-```{r labwork-overview, echo=F}
+```{r labwork-overview-Sabrina, echo=F}
+PDATA=sample_metadata
+PDATA$PROJECT[PDATA$ANALYSE_TYPE_CODE != "999"] = paste0(" ",PDATA$ANALYSE_TYPE[PDATA$ANALYSE_TYPE_CODE != "999"])
+PDATA$NR_REPLICATES = NA
+for (XPRIMER in rev(unique(PDATA$PRIMERS))){
+  PDATA$NR_REPLICATES[PDATA$PRIMERS == XPRIMER] =
+    sapply(PDATA$INDIVIDUAL[PDATA$PRIMERS == XPRIMER], function(x)(length(unique(PDATA$TECHNICAL_REPLICATE[PDATA$PRIMERS == XPRIMER &  PDATA$INDIVIDUAL == x]))))  
+}
+
+
+OUT = aggregate(data=PDATA, INDIVIDUAL ~ PROJECT + PRIMERS + NR_REPLICATES , FUN =  function(x) length(unique(x)))
+OUT2 = aggregate(data=PDATA, UNIQUE_SAMPLE_CODE ~ PROJECT + PRIMERS + NR_REPLICATES , FUN =  function(x) length(unique(x)))
+
+OUT$AMPLICONS = OUT2$UNIQUE_SAMPLE_CODE
+
+OUT = OUT[order(OUT$PRIMERS,OUT$PROJECT, decreasing = T), c(1,2,4,3,5)]
+
+kable(OUT, row.names = F)
+```
+
+
+```{r check-table1, echo=F, eval=F}
+
+print(paste0('Checking numbers of samples * replicates = amplicons:'))
+
+if (sum(! OUT$AMPLICONS == OUT$INDIVIDUAL * OUT$NR_REPLICATES) > 0){
+  print(paste0("Warning: ", sum(! OUT$AMPLICONS == OUT$INDIVIDUAL * OUT$NR_REPLICATES), " rows in the table don't match the expected!"))
+  kable(OUT[! OUT$AMPLICONS == OUT$INDIVIDUAL * OUT$NR_REPLICATES,])
+} else {
+  print(paste0("Numbers are OK !"))
+}
+
+```
+
+#### TOTAL samples per PRIMER 
+
+```{r labwork-overview-1, echo=F}
+
+aggregate(data=OUT, INDIVIDUAL ~ PRIMERS, FUN =sum)
+
+# aggregate(data=sample_metadata, INDIVIDUAL ~ PRIMERS, FUN =  function(x) length(unique(x)))
+```
+
+#### TOTAL amplicons per PRIMER
+
+```{r labwork-overview-2, echo=F}
+aggregate(data=OUT, AMPLICONS ~ PRIMERS, FUN =sum)
+
+# aggregate(data=sample_metadata, UNIQUE_SAMPLE_CODE ~ PRIMERS, FUN =  function(x) length(unique(x)))
+
+```
+
+
+```{r labwork-overview-legacy, echo=F, eval=F}
 
 sample_metadata$TECHNICAL_REPLICATE_COLLAPSED = as.integer(sample_metadata$TECHNICAL_REPLICATE)
 # sample_metadata$TECHNICAL_REPLICATE_COLLAPSED[sample_metadata$TECHNICAL_REPLICATE_COLLAPSED > 3] = "3+"
@@ -124,7 +177,7 @@ table1 = as.data.frame(table(sample_metadata$PROJECT,
 
 table1 = table1[table1$Freq > 0,]
 
-kable(table1, col.names = c("Project", "Primers","analyse", "replicate","PCR NR"))
+kable(table1, col.names = c("Project", "Primers","analyse", "replicate","PCR NR"), row.names = F)
 
 
 ```
