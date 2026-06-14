@@ -53,8 +53,15 @@ PROJ_NAME = basename(dirname(data_dir))
 read_count_track.df = read.summary_files_demultiplex(data_dir)
 # read_count_track.df = read.summary_files_demultiplex(data_dir, summary_file_pattern = "_sample.txt", legacy_mode = T)
 
-# only keep R1 data
-read_count_track.df = read_count_track.df[grepl("1$|FWD$", read_count_track.df$type),]
+# only keep R1 data if it exists, else use all
+
+if (sum(grepl("1$|FWD$", read_count_track.df$type)) > 0){
+  read_count_track.df = read_count_track.df[grepl("1$|FWD$", read_count_track.df$type),]
+} else {
+  read_count_track.df$type = as.character(read_count_track.df$type)
+  read_count_track.df$type[read_count_track.df$type == ""] = "demultiplexed_R1"
+  read_count_track.df$type = factor(read_count_track.df$type)
+}
 
 # add total raw reads:
 # because demultiplexing is done in 2 steps, unk+res is 2x raw
