@@ -56,16 +56,21 @@ read_count_track.df = read.summary_files_demultiplex(data_dir)
 # only keep R1 data if it exists, else use all
 
 if (sum(grepl("1$|FWD$", read_count_track.df$type)) > 0){
+  PAIRED_END=T
   read_count_track.df = read_count_track.df[grepl("1$|FWD$", read_count_track.df$type),]
+  # add total raw reads:
+  # PAIRED END: because demultiplexing is done in 2 steps, unk+res is 2x raw
+  tot_reads_multiplexed = sum(read_count_track.df$read_count) / 2
 } else {
+  PAIRED_END=F
   read_count_track.df$type = as.character(read_count_track.df$type)
-  read_count_track.df$type[read_count_track.df$type == ""] = "demultiplexed_R1"
+  read_count_track.df$type[read_count_track.df$type == ""] = "demultiplexed"
   read_count_track.df$type = factor(read_count_track.df$type)
+  # E.G. PacBio singe-end
+  tot_reads_multiplexed = sum(read_count_track.df$read_count)
 }
 
-# add total raw reads:
-# because demultiplexing is done in 2 steps, unk+res is 2x raw
-tot_reads_multiplexed = sum(read_count_track.df$read_count) / 2
+
 
 ```
 
@@ -74,7 +79,7 @@ tot_reads_multiplexed = sum(read_count_track.df$read_count) / 2
 - Demultiplexing success complete run-level
 
 ```{r echo=F}
-total_demultiplexed=sum(read_count_track.df$read_count[! read_count_track.df$sample_id == "unknown"])
+total_demultiplexed=sum(read_count_track.df$read_count[! grepl("unknown" , read_count_track.df$sample_id)])
 demultiplex_success_percent = round(total_demultiplexed/(tot_reads_multiplexed)*100, digits=2)
 ```
 
@@ -93,8 +98,10 @@ demultiplex_summary_df_pp = aggregate(read_count ~ type + multiplexed_source, da
 # add total raw reads per plate:
 # because demultiplexing is done in 2 steps, unk+res is 2x raw
 tot_raw_sum_pp = aggregate(read_count ~ multiplexed_source, data = demultiplex_summary_df_pp, sum)
-tot_raw_sum_pp$read_count = tot_raw_sum_pp$read_count/2
-tot_raw_sum_pp$type = "raw_data_R1"
+if (PAIRED_END) tot_raw_sum_pp$read_count = tot_raw_sum_pp$read_count/2
+tot_raw_sum_pp$type = "raw_data"
+if (PAIRED_END) tot_raw_sum_pp$type = "raw_data_R1"
+
 demultiplex_summary_df_pp = rbind(demultiplex_summary_df_pp, tot_raw_sum_pp)
 
 # create use info column
@@ -102,18 +109,19 @@ demultiplex_summary_df_pp$type_use = "used_data"
 demultiplex_summary_df_pp$type_use[grepl(pattern = "unknown|discard|unassembled|5prime|Undetermined", x = demultiplex_summary_df_pp$type )] = "discarted_data"
 
 # per plate demultiplexing success
-pp_demu= demultiplex_summary_df_pp[demultiplex_summary_df_pp$type == "demultiplexed_R1",c("multiplexed_source", "read_count")]
-pp_tot_raw = demultiplex_summary_df_pp[demultiplex_summary_df_pp$type == "raw_data_R1",c("multiplexed_source", "read_count")]
+pp_demu= demultiplex_summary_df_pp[grepl("demultiplex" , demultiplex_summary_df_pp$type), c("multiplexed_source", "read_count")]
+pp_tot_raw = demultiplex_summary_df_pp[grepl("raw_data" , demultiplex_summary_df_pp$type),c("multiplexed_source", "read_count")]
 
 demultiplex_success_pp = merge(pp_demu, pp_tot_raw, by = 1)
 demultiplex_success_pp$demultiplex_success_percent = demultiplex_success_pp$read_count.x/demultiplex_success_pp$read_count.y *100
 
 demultiplex_summary_df_pp$type = factor(
-  demultiplex_summary_df_pp$type, levels=c('raw_data_R1',"unknown_R1","unknown-round1-1","unknown-round1bis-1",'unknown_round2_1',"demultiplexed_R1"))
+  demultiplex_summary_df_pp$type, levels=c('raw_data_R1', "raw_data", "unknown_R1","unknown-round1-1","unknown-round1bis-1",'unknown_round2_1',
+                                           "demultiplexed_R1", "demultiplexed"))
 
 p_overview_data_pp = demultiplex_summary_df_pp[demultiplex_summary_df_pp$type_use == "used_data",]
 p_overview_data_pp = merge(p_overview_data_pp, demultiplex_success_pp[, c(1,4)], by = "multiplexed_source")
-p_overview_data_pp$demultiplex_success_percent[p_overview_data_pp$type == "raw_data_R1"] = 100
+p_overview_data_pp$demultiplex_success_percent[ grepl("raw_data" , p_overview_data_pp$type)] = 100
 
 p_demult_overview_pp = ggplot(data=p_overview_data_pp, aes(x=type, y=read_count, fill=type)) +
   geom_col() + facet_grid(~multiplexed_source) +
@@ -139,8 +147,8 @@ Plotting the demultiplexed read_counts per sample, per POOL
 
 ```{r echo=FALSE}
 sfigh = min( 150, nrow(read_count_track.df)*0.2)
-rc.df = read_count_track.df[read_count_track.df$type %in% c("demultiplexed_R1", "unknown_round2_1"),]
-rownames(rc.df) = gsub("_R1.fastq.gz" , "", rc.df$file_name)
+rc.df = read_count_track.df[read_count_track.df$type %in% c("demultiplexed_R1", "demultiplexed", "unknown_round2_1"),]
+rownames(rc.df) = rc.df$sample_id
 rc.df=rc.df[,"read_count", drop=F]
 sample_sheet=merge(sample_sheet, rc.df, by = "row.names")
 row.names(sample_sheet) = sample_sheet$Row.names
@@ -167,7 +175,6 @@ p_demult_per_sample
 - This might be quite small for the number of samples/amplicons
 - Check the generated supplement `.pdf`
 
-
 ```{r ggsave, echo=F}
 ggfname=paste0("demultiplex-QC-report-supplement-fig.pdf")
 ggoutp = file.path(params$OUT_DIR,ggfname)
@@ -190,7 +197,8 @@ sample_sheet$WELL_COLUMN = as.factor(sample_sheet$WELL_COLUMN)
 mycols = length(unique(sample_sheet$PRIMERS))
 
 # some extra for next chunk
-plh=length(unique(sample_sheet$PLATE_NOTES)) *1.5
+plh=max(5,length(unique(sample_sheet$PLATE_NOTES)) *1.5)
+
 ```
 
 
@@ -200,7 +208,7 @@ plh=length(unique(sample_sheet$PLATE_NOTES)) *1.5
 pl_plot = ggplot2::ggplot( data=sample_sheet, ggplot2::aes(
   x = .data$WELL_COLUMN, y=.data$WELL_ROW, fill=.data$SAMPLE_TYPE, alpha=.data$read_count, colour=.data$SAMPLE_TYPE)) +
 ggplot2::geom_tile(linewidth=0.2, colour="black") +
-  geom_text(aes(label = LABEL), colour="black", size=2, alpha=0.8) +
+  geom_text(aes(label = LABEL), colour="black", size=4, alpha=0.8) +
 ggplot2::facet_wrap(~.data$PLATE, ncol = 3, scales = "free") +
 ggplot2::scale_x_discrete(limits=factor(c(1:12))) +
 ggplot2::scale_y_discrete(limits=rev) +
@@ -279,7 +287,7 @@ p_bc_pool = ggplot(data=bc_pool_df, aes(x=BARCODE_F_PRIMER, y=percent, fill=LIBR
   ylab("Percent of reads (%)")
 
 fh = length(bc_order_x)*0.15
-fw = length(unique(bc_pool_df$LIBRARY_CODE))*2
+fw = max(5, length(unique(bc_pool_df$LIBRARY_CODE))*2)
 ```
 
 
