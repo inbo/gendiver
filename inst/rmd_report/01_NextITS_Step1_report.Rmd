@@ -48,7 +48,6 @@ PROJ_NAME = paste0(basename(dirname(data_dir)), ":", basename(data_dir))
 # `r unique(sample_sheet$RUN)`
 # `r PROJ_NAME`
 
-# NextITS Step1 QC
 
 ## LIMA demultiplexing log:
 
@@ -298,7 +297,7 @@ controls = names(type.tb)[! grepl("Metabarcoding|eDNA",names(type.tb))]
 control_plots = as.list(controls, controls)
 names(control_plots) = controls
 
-fH = min(150, max(type.tb[controls])*0.2)
+fH = max(4, max(type.tb[controls])*0.2)
 ```
 
 
@@ -336,4 +335,30 @@ write.table(sample_sheet, file = tfoutp, sep=",", row.names = F)
 
 ```{r show-ex, eval=F}
 mydf = read.csv("NextITS-Step1-QC-report-supplement-table.csv", header=T)
+```
+
+
+## NextITS desciption files
+
+### README_Step1_Methods
+
+```{r, results='asis'}
+x = file.path(data_dir, "pipeline_info/README_Step1_Methods.txt")
+if (file.exists(x)) cat(paste0(readLines(x), "\n\n"))
+```
+
+### Parameters
+
+- Note: not all soft is used
+
+```{r, results='markup'}
+params_log= file.path(data_dir, "pipeline_info/pipeline_params.tsv")
+if (file.exists(params_log)) cat(paste0(readLines(params_log), "\n"))
+```
+
+### software_versions
+
+```{r, results='markup'}
+x = file.path(data_dir, "pipeline_info/software_versions.yml")
+if (file.exists(x)) cat(paste0(readLines(x), "\n"))
 ```
