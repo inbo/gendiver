@@ -72,7 +72,7 @@ report.demultiplex = function(sample_sheet_url, demultiplex_result_path, out_dir
 #' @param preprocess_result_path HPC-ONLY: file_path to pre-processing results
 #' @param out_dir Output folder (Default="pre-process-QC-report")
 #'
-#' @returns HTML report for demultiplexing results, in `out_dir`
+#' @returns HTML report for pre-processing results, in `out_dir`
 #' @export
 #'
 #' @examples
@@ -88,6 +88,37 @@ report.preprocess = function(sample_sheet_url, preprocess_result_path, out_dir="
                     knit_root_dir = tmp, intermediates_dir = tmp,
                     params = list("SAMPLE_SHEET_URL"=sample_sheet_url,
                                   "PREPROCESS_RESULT_PATH"=preprocess_result_path,
+                                  "OUT_DIR"=out_dir),
+                    quiet = F
+  )
+
+}
+
+
+#' Render Rmarkdown Report - NextITS Step1
+#'
+#' //////// HPC-ONLY //////////
+#'
+#' @param sample_sheet_url Filepath for \link[readxl]{read_xlsx} or google-sheets id \link[googlesheets4]{range_read}
+#' @param nextits1_result_path HPC-ONLY: file_path to NextITS step1 results
+#' @param out_dir Output folder (Default="pre-process-QC-report")
+#'
+#' @returns HTML report for NextITS Step1 results, in `out_dir`
+#' @export
+#'
+#' @examples
+#' #To add
+report.nextits1 = function(sample_sheet_url, nextits1_result_path, out_dir="NextITS-Step1-QC-report") {
+  dir.create(out_dir, showWarnings = F)
+  out_dir = normalizePath(out_dir)
+  tmp=tempdir()
+  rmarkdown::render(input = system.file("rmd_report","01_NextITS_Step1_report.Rmd", package = "gendiver"),
+                    output_file = "NextITS-Step1-QC-report.html",
+                    output_format="html_document",
+                    output_dir = out_dir,
+                    knit_root_dir = tmp, intermediates_dir = tmp,
+                    params = list("SAMPLE_SHEET_URL"=sample_sheet_url,
+                                  "PREPROCESS_RESULT_PATH"=nextits1_result_path,
                                   "OUT_DIR"=out_dir),
                     quiet = F
   )

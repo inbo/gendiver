@@ -346,7 +346,7 @@ csam.df = data.frame(sample_data(ps))
 csam.df = csam.df[csam.df$ANALYSE_TYPE %in% controls,]
 
 fH = max(length(unique(csam.df$TECHNICAL_REPLICATE_CODE)), 7)
-fW = min(7,length(unique(csam.df$INDIVIDUAL_CODE))*0.7)
+fW = min(10 , max(6,length(unique(csam.df$INDIVIDUAL_CODE))*0.7))
 ```
 
 ```{r plot-c, fig.width=fW, fig.height=fH, echo=F, fig.align='center'}
@@ -363,15 +363,20 @@ for (i in 1:length(controls)){
   }
   
   ps_control = prune_taxa(rowSums(otu_table(ps_control)) > 0, ps_control)
-  ps_control = tax_glom(ps_control, "species")
+  
+  # find highst tax with no NA
+  tax_na = colSums(!is.na(tax_table(ps_control)))
+  tax_level = names(tax_na)[max(which(tax_na > 0))]
+  
+  ps_control = tax_glom(ps_control, tax_level)
   ps_control
   
   # # create custom color
   txs = taxa_sums(ps_control)
   txs_keep = names(txs[order(txs, decreasing = T)][1:min(length(txs),topx)])
   txd = as.data.frame(tax_table(ps_control))
-  txd$top_species = NA
-  txd[txs_keep, "top_species"] = txd[txs_keep, "species"]
+  txd$top_taxa = NA
+  txd[txs_keep, "top_taxa"] = txd[txs_keep, tax_level]
 
   tax_table(ps_control) = tax_table(as.matrix(txd))
   
@@ -382,7 +387,7 @@ for (i in 1:length(controls)){
   scale_y_continuous(expand = c(0,0))
   print(p_overview_control)
   
-  p_overview_control_species = plot_bar(ps_control, fill = "top_species", x = "INDIVIDUAL_CODE") + 
+  p_overview_control_species = plot_bar(ps_control, fill = "top_taxa", x = "INDIVIDUAL_CODE") + 
   facet_grid(rows = vars(TECHNICAL_REPLICATE))+
   ggtitle(paste(controls[i], "- top",topx,"taxa"), subtitle = PROJ_NAME) +
     theme(legend.position="top") +
