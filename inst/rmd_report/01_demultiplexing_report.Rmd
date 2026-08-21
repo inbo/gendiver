@@ -109,7 +109,7 @@ demultiplex_summary_df_pp$type_use = "used_data"
 demultiplex_summary_df_pp$type_use[grepl(pattern = "unknown|discard|unassembled|5prime|Undetermined", x = demultiplex_summary_df_pp$type )] = "discarted_data"
 
 # per plate demultiplexing success
-pp_demu= demultiplex_summary_df_pp[grepl("demultiplex" , demultiplex_summary_df_pp$type), c("multiplexed_source", "read_count")]
+pp_demu= demultiplex_summary_df_pp[grepl("demultiplex" , demultiplex_summary_df_pp$type) & demultiplex_summary_df_pp$type_use == "used_data" , c("multiplexed_source", "read_count")]
 pp_tot_raw = demultiplex_summary_df_pp[grepl("raw_data" , demultiplex_summary_df_pp$type),c("multiplexed_source", "read_count")]
 
 demultiplex_success_pp = merge(pp_demu, pp_tot_raw, by = 1)
@@ -126,7 +126,7 @@ p_overview_data_pp$demultiplex_success_percent[ grepl("raw_data" , p_overview_da
 p_demult_overview_pp = ggplot(data=p_overview_data_pp, aes(x=type, y=read_count, fill=type)) +
   geom_col() + facet_grid(~multiplexed_source) +
   geom_text(
-    aes(label = paste0(round(demultiplex_success_percent, 2), "%") ),
+    aes(label = paste0(round(demultiplex_success_percent, 1), "%") ),
     position = position_dodge(width = 0.5), 
     vjust = -1,
   ) + 
