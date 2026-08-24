@@ -302,7 +302,7 @@ sample_sheet$LABEL[sample_sheet$ANALYSE_TYPE_CODE == 999] = ""
 sample_sheet$WELL_COLUMN = as.factor(sample_sheet$WELL_COLUMN)
 mycols = length(unique(sample_sheet$PRIMERS))
 
-figh = length(unique(sample_sheet$PLATE_NOTES)) * 4
+figh = length(unique(sample_sheet$PLATE_NOTES)) * 2
 ```
 
 - Map readcounts per WELL to **check overall read distribution**
