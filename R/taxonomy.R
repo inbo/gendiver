@@ -131,20 +131,39 @@ clean_taxonomies = function(tabraw){
   return(out)
 }
 
-# Very basic parse of SINTAX like taxonomy output (x:xxxxx,y:yyyyyy,....)
-parse_tax_string = function(x, is_pred=F){
+#' Parse VSEARCH SINTAX taxonomy string to dataframe
+#'
+#'
+#'@description
+#'
+#' Each taxonomic identifier must start with an indication of the rank by one of the letters d (for domain) k (kingdom), p (phylum), c (class), o (order), f (family), g (genus), s (species), or t (strain). The letter is followed by a colon (:) and the name of that rank. Commas and semicolons are not allowed in the name of the rank. Non-ascii characters should be avoided in the names.
+#'
+#' Example:
+#'
+#' >X80725_S000004313;tax=d:Bacteria,p:Proteobacteria,c:Gammaproteobacteria,o:Enterobacteriales,f:Enterobacteriaceae,g:Escherichia/Shigella,s:Escherichia_coli,t:str._K-12_substr._MG1655
+#'
+#'
+#' @param x VSEARCH SINTAX taxonomy string
+#' @param is_pred (SINTAX output specific) If bootstrap values are part of the tax_string. Default = FALSE.
+#'
+#' @returns Data.frame with (1) row and (n = tax_levels) columns
+#' @export
+#'
+#' @examples
+#' tax_string = "d:Bacteria,p:Proteobacteria,c:Gammaproteobacteria,o:Enterobacteriales,f:Enterobacteriaceae,g:Escherichia/Shigella,s:Escherichia_coli,t:str._K-12_substr._MG1655"
+#' tax_string |> parse.utax_string()
+parse.utax_string = function(x, is_pred=F){
   # Return empty s to fit in when rbind
   if (x==""){
-    return(data.frame("s"=NA))
+    return(data.frame("species"=NA))
   }
   # split taxon-levels ,
-  xspl = unlist(strsplit(x, ","))
+  xspl = unlist(strsplit(x, ",*[dpcofgst]:"))[-1]
 
   # name to first letter
-  names(xspl) = sapply(xspl, substr,1,1)
-  # remove 2 first chars -> designete taxonomy "n:"
-  xspl = gsub("^.:", "", xspl)
+  names(xspl) = c("domain", "phylum", "class", "order", "family", "genus", "species", "strain")[1:length(xspl)]
   xcol = as.data.frame.list(xspl)
+
   if (is_pred){
     mycols = names(xspl)
     xcol_bs = stringr::str_extract(xspl, "\\d+\\.\\d+")
@@ -157,6 +176,7 @@ parse_tax_string = function(x, is_pred=F){
   }
 
   return(xcol)
+
 }
 
 #' Read VSEARCH SINTAX taxonomy output into dataframe
@@ -185,10 +205,10 @@ read.taxonomy_sintax = function(sintax_path, read_supported_only=TRUE, add_sourc
   rtab = rtab[order(nchar(rtab$TAX_PRED_CUTOFF), decreasing = T),]
   if (read_supported_only) {
     ## Read supported
-    tax_supp = data.table::rbindlist(lapply(rtab$TAX_PRED_CUTOFF, parse_tax_string), fill = T)
+    tax_supp = data.table::rbindlist(lapply(rtab$TAX_PRED_CUTOFF, parse.utax_string), fill = T)
   } else {
     ## Read complete prediction
-    tax_supp = data.table::rbindlist(lapply(rtab$TAX_PRED, parse_tax_string, is_pred = T), fill = T)
+    tax_supp = data.table::rbindlist(lapply(rtab$TAX_PRED, parse.utax_string, is_pred = T), fill = T)
   }
 
   if (clean_tax) {tax_supp = clean_taxonomies(tax_supp)}
@@ -203,6 +223,102 @@ read.taxonomy_sintax = function(sintax_path, read_supported_only=TRUE, add_sourc
   rownames(tax_supp) = gsub(";size=\\d*", "" , rtab$QUERY_LABEL)
 
   return(tax_supp)
+}
+
+
+
+paste_string_listOBI = function(x){
+  return(paste0("['",paste0(unique(x), collapse="', '"), "']"))
+}
+
+paste_string_list = function(x){
+  return(paste0("",paste0(unique(x), collapse=" / "), ""))
+}
+
+#' Read VSEARCH BLAST6 format to dataframe
+#'
+#' Reading and basic formatting of vsearch --blast6 output
+#'
+#'
+#' @param ublast6_path Path to ublast6 output file (tsv). Can be file_path or google-drive URL
+#'
+#' @returns Dataframe with taxonomy information (columns) of target per query hit
+#' @export
+#'
+#' @examples
+#' # to add
+read.taxonomy_usearch_blast6 = function(ublast6_path){
+  usearch_blast6 = gendiver::read.table_gdrive(ublast6_path, sep="\t", header=F)
+  colnames(usearch_blast6) = c("QUERY_LABEL", "TARGET_LABEL", "ID", "ALNLEN", "MISM", "OPENS", "QLO", "QHI", "TLO", "THI", "EVALUE", "BITS")
+  usearch_blast6$QUERY_LABEL = gsub(";.*", "", usearch_blast6$QUERY_LABEL)
+  usearch_blast6$TARGET_TAX = gsub(".*tax=", "", usearch_blast6$TARGET_LABEL)
+  usearch_blast6_tax_parsed = data.table::rbindlist(lapply(usearch_blast6$TARGET_TAX, parse.utax_string), fill = T)
+  usearch_blast6 = cbind(usearch_blast6,usearch_blast6_tax_parsed)
+  usearch_blast6$TARGET_LABEL = gsub(";tax=.*", "", usearch_blast6$TARGET_LABEL)
+  usearch_blast6$TARGET_TAX = NULL
+  return(usearch_blast6)
+}
+
+#' Read VSEARCH LCA format to dataframe
+#'
+#' Reading and basic formatting of vsearch --lca_out output
+#'
+#'
+#' @param lca_path Path to lca output file (tsv). Can be file_path or google-drive URL
+#'
+#' @returns Dataframe with taxonomy information (columns) of target per query hit
+#' @export
+#'
+#' @examples
+#' # to add
+read.taxonomy_usearch_lca = function(lca_path){
+  usearch_lca = read.table_gdrive(lca_path, sep="\t", header=F)
+  usearch_lca = cbind(usearch_lca, data.table::rbindlist(lapply(usearch_lca[[2]], parse.utax_string), fill = T))
+  usearch_lca$V1 = gsub(";.*", "", usearch_lca$V1)
+  usearch_lca$V2 = NULL
+  colnames(usearch_lca)[1] = "QUERY_LABEL"
+  return(usearch_lca)
+}
+
+#' Merge VSEARCH BLAST6 and LCA format
+#'
+#'@description
+#' Merging BLAST6 (multiple RefDB hits per query/OTU) with LCA output (1 taxonomy per query/OTU) to generate OBITools like taxonomy table.
+#'
+#' BLAST6 data of multiple hits are collapsed and represented as a single element per query/OTU row.
+#'
+#'
+#' @param usearch_blast6 Path/URL to, or data.frame with, the BLAST6 output
+#' @param usearch_lca Path/URL to, or data.frame with, the LCA output
+#'
+#' @returns Dataframe with aggregated BLAST6 taxonomy information (columns) of target OTU
+#' @export
+#'
+#' @examples
+#' # to add
+merger.taxonomy_usearch = function(usearch_blast6, usearch_lca) {
+  # allow path/gdrive-id as input, else assume is dataframe
+  if (! is.data.frame(usearch_blast6)) {
+    usearch_blast6 = read.taxonomy_usearch_blast6(usearch_blast6)
+  }
+  if (! is.data.frame(usearch_lca)) {
+    usearch_lca = read.taxonomy_usearch_lca(usearch_lca)
+  }
+
+  usearch_ID_agg = aggregate(data=usearch_blast6, ID ~ QUERY_LABEL, FUN = max )
+  usearch_target_IDs = aggregate(data=usearch_blast6, TARGET_LABEL ~ QUERY_LABEL, FUN = paste_string_listOBI )
+  usearch_target_species = aggregate(data=usearch_blast6, species ~ QUERY_LABEL, FUN = paste_string_list)
+  usearch_agg_info = cbind(usearch_ID_agg, usearch_target_species[-1], usearch_target_IDs[-1] )
+  colnames(usearch_agg_info)= c("QUERY_LABEL", "ID", "TARGET_LABEL_species", "TARGET_LABEL")
+
+  usearch_lca$otu_order = row.names(usearch_lca)
+
+  usearch_combi_res = merge(usearch_lca, usearch_agg_info, by="QUERY_LABEL", all=T)
+  usearch_combi_res = usearch_combi_res[order(as.numeric(usearch_combi_res$otu_order)),]
+  usearch_combi_res$otu_order = NULL
+  row.names(usearch_combi_res) = usearch_combi_res$QUERY_LABEL
+
+  return(usearch_combi_res)
 }
 
 #' Read DECIPHER IdTaxa() taxonomy output into dataframe

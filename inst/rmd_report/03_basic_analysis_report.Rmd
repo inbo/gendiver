@@ -137,6 +137,7 @@ tax_df_rc = tax_df
 otu_tot_rc = rowSums(otu_df)
 tax_df_rc$read_count = NA
 tax_df_rc[names(otu_tot_rc), c("read_count")] = otu_tot_rc
+rm(otu_tot_rc)
 
 # remove taxonomy not in OTU table
 tax_df_rc = tax_df_rc[!is.na(tax_df_rc$read_count),]
@@ -144,6 +145,8 @@ tax_df_rc = tax_df_rc[!is.na(tax_df_rc$read_count),]
 tb_rc = sapply(colnames(tax_df), function(x) sum(tax_df_rc$read_count[!is.na(tax_df_rc[[x]])]))
 annot_overview2 = tb_rc[names(tb_rc) != "custom_taxon"]
 annot_overview2 = c(sum(tax_df_rc$read_count), annot_overview2)
+rm(tax_df_rc)
+
 names(annot_overview2)[1] = 'TOTAL'
 barplot(annot_overview2, main="Taxonomy assignments overview - READS", ylab = "Number of reads", sub=full_sub)
 print(annot_overview2, row.names = F)
@@ -156,8 +159,10 @@ asv_lengths = width(seqs)
 hist(asv_lengths, breaks = 100, main = "All data: OTU seq length", sub=basename(fasta_path) ,xlab = "Length (bp)")
 
 reads_length = data.frame("reads"=rowSums(otu_df), "length"=asv_lengths)
+rm(asv_lengths)
 
 len_reads.df = aggregate(reads~length, reads_length, sum)
+rm(reads_length)
 
 plot(len_reads.df, main = "All data: Per ASV-length the number of reads",
      sub=basename(otu_tab_path), xlab = "ASV length")
@@ -202,6 +207,7 @@ table(base_rank)
 
 otu_df_rank = otu_df
 otu_df_rank$max_tax_rank = base_rank[row.names(otu_df_rank)]
+rm(base_rank)
 
 otu_df_rank = reshape2::melt(otu_df_rank, id.vars=c("max_tax_rank"), value.name = "read_count", variable.name="USI")
 otu_df_rank = aggregate(data=otu_df_rank, read_count ~ max_tax_rank + USI, sum)
@@ -214,6 +220,7 @@ usilvl = usilvl$USI[order(usilvl$read_count, decreasing = F)]
 
 otu_df_rank$USI = factor(otu_df_rank$USI, levels=usilvl)
 otu_df_rank$max_tax_rank = factor(otu_df_rank$max_tax_rank, levels = rev(c("_root", colnames(tax_df_no_custom))))
+rm(tax_df_no_custom)
 
 pss_plot = ggplot(data=otu_df_rank, aes(x=USI, y=read_count, fill = max_tax_rank)) + geom_col(position = "stack") + 
   coord_flip() + ggtitle("Total sample reads by maximum taxonomic level", subtitle = paste0(basename(otu_tab_path), "\n",basename(tax_tab_path))) +
@@ -222,7 +229,10 @@ pss_plot = ggplot(data=otu_df_rank, aes(x=USI, y=read_count, fill = max_tax_rank
         legend.position="top") +
   scale_y_continuous(expand = c(0,0))
 
+rm(otu_df_rank)
+invisible(gc())
 sfigh = min(150, ncol(otu_df)*0.2)
+
 ```
 
 ```{r pss_plot, fig.height=sfigh, fig.width=20, echo=F, fig.align='center'}
@@ -237,6 +247,8 @@ ggfname=paste0("operational-data-QC-report-supplement-fig.pdf")
 ggoutp = file.path(params$OUT_DIR,ggfname)
 print(ggfname)
 ggsave(ggoutp, pss_plot, width = 25, height = ncol(otu_df)*0.2, limitsize = FALSE)
+rm(pss_plot)
+invisible(gc())
 ```
 
 
@@ -275,7 +287,7 @@ ggfname1 =paste0("operational-data-QC-report-supplement-fig-bis.pdf")
 ggoutp1 = file.path(params$OUT_DIR,ggfname1)
 print(ggfname1)
 ggsave(ggoutp1, obi_ID_plot, width = 25, height = ncol(otu_df)*0.2 , limitsize = FALSE)
-
+invisible(gc())
 ```
 
 
@@ -329,15 +341,19 @@ ps = phyloseq(
   seqs
 )
 ps 
+
+rm(otu_df, tax_df, seqs)
+invisible(gc())
 ```
 
 ## Check CONTROL samples/amplicons
 
 ```{r show-c, echo=F}
 type.tb = table(sample_data(ps)$ANALYSE_TYPE)
+if (length(type.tb) < 1){type.tb = table(sample_data(ps)$SAMPLE_TYPE)}
 type.tb
 
-controls = names(type.tb)[names(type.tb) != "Metabarcoding"]
+controls = names(type.tb)[names(type.tb) != "Metabarcoding" & names(type.tb) != "eDNA"]
 
 control_plots = as.list(controls, controls)
 names(control_plots) = controls
@@ -350,50 +366,59 @@ fW = min(10 , max(6,length(unique(csam.df$INDIVIDUAL_CODE))*0.7))
 ```
 
 ```{r plot-c, fig.width=fW, fig.height=fH, echo=F, fig.align='center'}
-topx=20
 
-for (i in 1:length(controls)){
-  print(controls[i])
-  maskcontrol = sample_data(ps)[["ANALYSE_TYPE"]] == controls[i]
-  ps_control = prune_samples(maskcontrol, ps)
+if (length(control_plots) > 0){
   
-  if (sum(taxa_sums(ps_control)) < 1){
-    cat(paste0(controls[i], " are all completely empty!"))
-    next
-  }
-  
-  ps_control = prune_taxa(rowSums(otu_table(ps_control)) > 0, ps_control)
-  
-  # find highst tax with no NA
-  tax_na = colSums(!is.na(tax_table(ps_control)))
-  tax_level = names(tax_na)[max(which(tax_na > 0))]
-  
-  ps_control = tax_glom(ps_control, tax_level)
-  ps_control
-  
-  # # create custom color
-  txs = taxa_sums(ps_control)
-  txs_keep = names(txs[order(txs, decreasing = T)][1:min(length(txs),topx)])
-  txd = as.data.frame(tax_table(ps_control))
-  txd$top_taxa = NA
-  txd[txs_keep, "top_taxa"] = txd[txs_keep, tax_level]
+  topx=20
 
-  tax_table(ps_control) = tax_table(as.matrix(txd))
+  for (i in 1:length(controls)){
+    print(controls[i])
+    maskcontrol = sample_data(ps)[["ANALYSE_TYPE"]] == controls[i]
+    ps_control = prune_samples(maskcontrol, ps)
+    
+    if (sum(taxa_sums(ps_control)) < 1){
+      cat(paste0(controls[i], " are all completely empty!"))
+      next
+    }
+    
+    ps_control = prune_taxa(rowSums(otu_table(ps_control)) > 0, ps_control)
+    
+    # find highst tax with no NA
+    tax_na = colSums(!is.na(tax_table(ps_control)))
+    tax_level = names(tax_na)[max(which(tax_na > 0))]
+    
+    ps_control = tax_glom(ps_control, tax_level)
+    ps_control
+    
+    # # create custom color
+    txs = taxa_sums(ps_control)
+    txs_keep = names(txs[order(txs, decreasing = T)][1:min(length(txs),topx)])
+    txd = as.data.frame(tax_table(ps_control))
+    txd$top_taxa = NA
+    txd[txs_keep, "top_taxa"] = txd[txs_keep, tax_level]
   
-  p_overview_control = plot_bar(ps_control, fill = "custom_taxon", x = "INDIVIDUAL_CODE") + 
-  facet_grid(rows = vars(TECHNICAL_REPLICATE))+
-  ggtitle(paste(controls[i], "- overview"), subtitle = PROJ_NAME)  +
-    theme(legend.position="top") +
-  scale_y_continuous(expand = c(0,0))
-  print(p_overview_control)
+    tax_table(ps_control) = tax_table(as.matrix(txd))
+    
+    p_overview_control = plot_bar(ps_control, fill = "custom_taxon", x = "INDIVIDUAL_CODE") + 
+    facet_grid(rows = vars(TECHNICAL_REPLICATE))+
+    ggtitle(paste(controls[i], "- overview"), subtitle = PROJ_NAME)  +
+      theme(legend.position="top") +
+    scale_y_continuous(expand = c(0,0))
+    print(p_overview_control)
+    
+    p_overview_control_species = plot_bar(ps_control, fill = "top_taxa", x = "INDIVIDUAL_CODE") + 
+    facet_grid(rows = vars(TECHNICAL_REPLICATE))+
+    ggtitle(paste(controls[i], "- top",topx,"taxa"), subtitle = PROJ_NAME) +
+      theme(legend.position="top") +
+    scale_y_continuous(expand = c(0,0)) 
+    print(p_overview_control_species)
+    }
   
-  p_overview_control_species = plot_bar(ps_control, fill = "top_taxa", x = "INDIVIDUAL_CODE") + 
-  facet_grid(rows = vars(TECHNICAL_REPLICATE))+
-  ggtitle(paste(controls[i], "- top",topx,"taxa"), subtitle = PROJ_NAME) +
-    theme(legend.position="top") +
-  scale_y_continuous(expand = c(0,0)) 
-  print(p_overview_control_species)
+} else {
+  print("No CONTROLS detected !")
 }
+
+
 ```
 
 
@@ -423,7 +448,8 @@ plot_bar(normalized_ps, fill = "custom_taxon", x="INDIVIDUAL_CODE") +
   # coord_flip() +
   facet_grid(rows = vars(TECHNICAL_REPLICATE)) + 
   ggtitle(paste(PROJ_NAME)) + ylab('Relative abundance (%)') +  theme(legend.position = "bottom")
-
+rm(normalized_ps)
+invisible(gc())
 ```
 
 
@@ -575,6 +601,8 @@ for (tax_rank in tax_levels){
 
 ```{r pl_otus_list, fig.width=10, fig.height=5, fig.align='center', echo=F}
 pl_otus_list
+rm(pl_otus_list)
+invisible(gc())
 ```
 
 ### Number of OTUs with unique species annotation
@@ -583,6 +611,8 @@ pl_otus_list
 
 ```{r pl_list, echo=F, fig.align='center'}
 pl_list
+rm(pl_list)
+invisible(gc())
 ```
 
 
@@ -593,7 +623,8 @@ pl_list
 ```{r pl_reads_list, fig.width=10, fig.height=5, echo=F, fig.align='center'}
 
 pl_reads_list
-
+rm(pl_reads_list)
+invisible(gc())
 ```
 
 ## Taxonomy in function of OTU variation and TOTAL number of reads
@@ -602,6 +633,8 @@ pl_reads_list
 
 ```{r pl_scatter_list, fig.width=10, fig.height=8, echo=F, fig.align='center'}
 pl_scatter_list$species
+rm(pl_scatter_list)
+invisible(gc())
 ```
 
 
