@@ -2,6 +2,17 @@
 ### QC Plots ###
 ################
 
+clean.ps_sample_sheet = function(ps_obj){
+  sample_metadata = as.data.frame(phyloseq::sample_data(ps_obj))
+  sample_metadata$PLATE = factor(gsub("R.*$", "", sample_metadata$PLATE_NOTES))
+  sample_metadata$PLATE_REPLICATE = factor(paste0("R",gsub("^.*R", "", sample_metadata$PLATE_NOTES)))
+  sample_metadata$PLATE_NOTES = factor(sample_metadata$PLATE_NOTES)
+  sample_metadata$WELL_COLUMN = factor(sample_metadata$WELL_COLUMN)
+  sample_metadata$WELL_ROW = factor(sample_metadata$WELL_ROW)
+  sample_metadata$TECHNICAL_REPLICATE = factor(sample_metadata$TECHNICAL_REPLICATE)
+  return(sample_metadata)
+}
+
 
 #' Barplot and ordination for QC on possible strip-swaps
 #'
@@ -16,11 +27,12 @@
 #' @examples
 #' #To add
 qcplot.plate_column_asv_barplot = function(ps_plate, topX=25){
+  phyloseq::sample_data(ps_plate) = clean.ps_sample_sheet(ps_plate)
   out_list = c()
   # Create sample column to merge on
   phyloseq::sample_data(ps_plate)$X = paste(
     phyloseq::sample_data(ps_plate)$WELL_COLUMN,
-    phyloseq::sample_data(ps_plate)$TECHNICAL_REPLICATE, sep = "_")
+    phyloseq::sample_data(ps_plate)$PLATE_REPLICATE, sep = "_")
 
   # And taxglom for easier interpretation
   ps_plate = phyloseq::tax_glom(ps_plate, taxrank = "species")
@@ -38,20 +50,20 @@ qcplot.plate_column_asv_barplot = function(ps_plate, topX=25){
     ps_plate)
 
   # Plot data
-  phyloseq::plot_bar(ps_plate_topX, x="WELL_COLUMN", fill="species", facet_grid=~TECHNICAL_REPLICATE)
+  phyloseq::plot_bar(ps_plate_topX, x="WELL_COLUMN", fill="species", facet_grid=~PLATE_REPLICATE)
 
   ## MERGE the columns into samples
   ps_plate_merged = phyloseq::merge_samples(x=ps_plate, "X")
 
   ## Barplot
-  phyloseq::plot_bar(ps_plate_merged, x="TECHNICAL_REPLICATE", fill="custom_taxon", facet_grid=~WELL_COLUMN)
+  phyloseq::plot_bar(ps_plate_merged, x="PLATE_REPLICATE", fill="custom_taxon", facet_grid=~WELL_COLUMN)
 
   ps_plate_merged_topX = phyloseq::prune_taxa(
     (phyloseq::tax_table(ps_plate_merged)[, "species"] %in% names(sort(order.sum, TRUE))[1:topX]),
     ps_plate_merged)
   ps_plate_merged_topX.frac = phyloseq::transform_sample_counts(ps_plate_merged_topX, function(OTU) OTU/sum(OTU)*100)
 
-  pb = phyloseq::plot_bar(ps_plate_merged_topX.frac, x="TECHNICAL_REPLICATE", fill="species", facet_grid=~WELL_COLUMN) +
+  pb = phyloseq::plot_bar(ps_plate_merged_topX.frac, x="PLATE_REPLICATE", fill="species", facet_grid=~WELL_COLUMN) +
     ggplot2::theme(legend.position="none")
 
   out_list$barplot = pb
@@ -60,10 +72,10 @@ qcplot.plate_column_asv_barplot = function(ps_plate, topX=25){
   ps_plate_merged.frac.ordination = phyloseq::ordinate(ps_plate_merged_topX.frac, "PCoA", "bray")
 
   phyloseq::sample_data(ps_plate_merged_topX.frac)$WELL_COLUMN = as.factor(phyloseq::sample_data(ps_plate_merged_topX.frac)$WELL_COLUMN)
-  phyloseq::sample_data(ps_plate_merged_topX.frac)$TECHNICAL_REPLICATE = as.factor(phyloseq::sample_data(ps_plate_merged_topX.frac)$TECHNICAL_REPLICATE)
+  phyloseq::sample_data(ps_plate_merged_topX.frac)$PLATE_REPLICATE = as.factor(phyloseq::sample_data(ps_plate_merged_topX.frac)$PLATE_REPLICATE)
 
   po = phyloseq::plot_ordination(ps_plate_merged_topX.frac, ps_plate_merged.frac.ordination,
-                       color="WELL_COLUMN", shape = "TECHNICAL_REPLICATE") +
+                                 color="WELL_COLUMN", shape = "PLATE_REPLICATE") +
     ggplot2::geom_text(
       ggplot2::aes(label=.data$WELL_COLUMN), size = 5, nudge_y = -0.015)
 
@@ -73,13 +85,34 @@ qcplot.plate_column_asv_barplot = function(ps_plate, topX=25){
 
 }
 
-clean.ps_sample_sheet = function(ps_obj){
-  sample_metadata = as.data.frame(phyloseq::sample_data(ps_obj))
-  sample_metadata$PLATE = factor(sample_metadata$PLATE_NOTES)
-  sample_metadata$WELL_COLUMN = factor(sample_metadata$WELL_COLUMN)
-  sample_metadata$WELL_ROW = factor(sample_metadata$WELL_ROW)
-  sample_metadata$TECHNICAL_REPLICATE = factor(sample_metadata$TECHNICAL_REPLICATE)
-  return(sample_metadata)
+
+#' [WRAPPER] Barplot and ordination for QC on possible strip-swaps
+#'
+#' Taxon-barplot and ordination with data grouped per plate and per column to investigate lab-specific errors/trends
+#'
+#' @param ps_obj Phyloseq object as INPUT
+#' @param topX integer, topX taxa per COLUMN on the plate (default=25)
+#'
+#' @returns List with n (plates) objects, for each a barplot and ordination
+#' @export
+#'
+#' @examples
+#' #To add
+qcplot.plate_column_asv_analysis = function(ps_obj, topX=25){
+
+  sample_metadata = clean.ps_sample_sheet(ps_obj)
+  platesx = sample_metadata$PLATE
+  pl_list = list()
+
+  for (pl_i in levels(platesx)){
+    sub_ps = phyloseq::prune_samples(sample_metadata$PLATE == pl_i, ps_obj)
+    sub_ps = phyloseq::prune_taxa(phyloseq::taxa_sums(sub_ps) > 0, sub_ps)
+    pl_list[[pl_i]] = gendiver::qcplot.plate_column_asv_barplot(sub_ps, topX)
+    pl_list[[pl_i]]$barplot = pl_list[[pl_i]]$barplot + ggplot2::ggtitle(pl_i)
+  }
+
+  return(pl_list)
+
 }
 
 
@@ -120,7 +153,7 @@ qcplot.plate_heatmap_toptaxa = function(ps_obj, omit_cutoff = 100){
   plate_layout_plot = ggplot2::ggplot( data=xx_p, ggplot2::aes(
       x = .data$WELL_COLUMN, y=.data$WELL_ROW, fill=.data$TOP_ASV, alpha=.data$TOP_ASV_PROP)) +
     ggplot2::geom_tile() +
-    ggplot2::facet_wrap(~.data$PLATE, ncol = 3, scales = "free") +
+    ggplot2::facet_wrap(~.data$PLATE_NOTES, ncol = 3, scales = "free") +
     ggplot2::scale_y_discrete(limits=rev) +
     ggplot2::theme_classic() + ggplot2::theme(legend.position="none") +
     ggplot2::ggtitle("Most abundant ASV per well",
@@ -160,7 +193,7 @@ qcplot.plate_heatmap_readcount = function(ps_obj, omit_cutoff = 100, transform="
     data=xx_p,
     ggplot2::aes(x = .data$WELL_COLUMN, y=.data$WELL_ROW, fill=.data$total_reads)) +
     ggplot2::geom_tile() +
-    ggplot2::facet_wrap(~.data$PLATE, ncol = 3) +
+    ggplot2::facet_wrap(~.data$PLATE_NOTES, ncol = 3) +
     ggplot2::scale_fill_gradient(high="red", low="lightblue", transform=transform) +
     ggplot2::theme_classic() +
     ggplot2::scale_y_discrete(limits=rev) +
