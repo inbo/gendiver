@@ -252,7 +252,7 @@ tax_df = select.taxonomy_obitools3(tax_df_raw, min_BEST_ID = ID_cutoff, fillNA =
 rm_unk_reads = sum(colSums(otu_df[row.names(tax_df),]))
 rm_unk = 100*(1 - rm_unk_reads/ sum(colSums(otu_df)))
 
-message(paste0("This removes ", rm_unk_reads, " (",round(rm_unk, 2), "%) reads"))
+message(paste0("[INFO] This removes ", rm_unk_reads, " (",round(rm_unk, 2), "%) reads"))
 
 ```
 
@@ -319,7 +319,7 @@ csam.df = data.frame(sample_data(ps))
 csam.df = csam.df[csam.df$ANALYSE_TYPE %in% controls,]
 
 fH = max(length(unique(csam.df$TECHNICAL_REPLICATE_CODE)), 7)
-fW = min(10 , max(6,length(unique(csam.df$INDIVIDUAL_CODE))*0.7))
+fW = min(25 , max(15,length(unique(csam.df$INDIVIDUAL_CODE))*0.7))
 ```
 
 ```{r plot-c, fig.width=fW, fig.height=fH, echo=F, fig.align='center'}
@@ -419,19 +419,23 @@ qcplot.plate_heatmap_readcount(ps, omit_cutoff = omit_cutoff, transform = "log")
 
 - samples with less than `r omit_cutoff` (1% of median) reads
 
-```{r failed-samples-view, fig.width=15, fig.height=5}
-
-
+```{r failed-samples-create}
 failedsamples = prune_samples(sample_sums(ps) < omit_cutoff, ps)
 failedsamples = prune_taxa(taxa_sums(failedsamples) > 0, failedsamples)
-
-make.taxa_barplot(failedsamples, taxa_rank = "custom_taxon", taxa_excl = NA) + ggtitle(paste0('Samples with < ', omit_cutoff, ' (1% of median) reads'))
 ```
 
 
-Check this for the custom taxon classes as well. 
+```{r failed-samples-view, fig.width=15, fig.height=8}
+make.taxa_barplot(failedsamples, taxa_rank = "species", taxa_excl = NA) + ggtitle(paste0('Samples with < ', omit_cutoff, ' (1% of median) reads'))
+```
 
-How do these classes spread over the plates, is this as expected?
+
+Check this for the custom taxons as well. 
+
+How do these taxa spread over the plates, is this as expected?
+
+I use 1% of the previously determined "minimum reads for a successful sample" as the minimum reads of the selected taxa for a sample to be plotted (`r round(omit_cutoff * 0.1) `).
+
 
 ```{r zoom-heatmap, fig.width=15, fig.height=15}
 
@@ -439,8 +443,8 @@ for (cct in unique(tax_table(ps)[, "custom_taxon"])){
   print(cct)
 
   ps_SELECT = subset_taxa(ps, custom_taxon == cct)
-  # taxa_omit = round(omit_cutoff * 0.1)
-  zpl = qcplot.plate_heatmap_readcount(ps_SELECT, omit_cutoff = 2) 
+  taxa_omit = round(omit_cutoff * 0.1)
+  zpl = qcplot.plate_heatmap_readcount(ps_SELECT, omit_cutoff = taxa_omit) 
   
   if (!is.null(zpl)){
     zpl = zpl + ggtitle(paste0("Read counts per well, only ", ID_cutoff, "ID reads, taxon=", cct ))
@@ -541,9 +545,9 @@ ggplot(data=plotdata) +
 # Project data
 
 - split the data in projects and visualize
-- These plots can be found in a supplementary folder alongside this report!
+- **These plots can be found in a supplementary folder alongside this report!**
 
-```{r}
+```{r export-ppbar-plots, warning=F}
 
 make.default_project_barplots(ps, RRA=F, out_path = file.path(SUPP_DIR, "project_barplots"))
 make.default_project_barplots(ps, RRA=T, out_path = file.path(SUPP_DIR, "project_barplots_RRA"))
@@ -771,23 +775,31 @@ NOTE: you can replace PATHS with the URL of files on the GDRIVE!
 
 Examples to load in data (see also INPUT segment of this report):
 
-```{r example-load, eval=F, echo = T}
+```
 # Load custom R-pkg
 library(gendiver)
 
+# read sample sheet
 my_sample_data = read.sample_sheet_lab(params$SAMPLE_SHEET_URL)
 
+# read OTU table
 my_otu_tab = read.otu_table_vsearch(params$OTU_PATH)
 
+# read taxonomy table (different functions for different tools!)
 my_tax_tab = read.taxonomy_sintax(params$TAX_PATH)
+my_tax_tab = read.taxonomy_obitools3()
 
+# [optional]  select ID1 taxa from obitools3 data
+my_tax_tab = select.taxonomy_obitools3(my_tax_tab)
+
+# read FASTA file
 my_seqs = read.fastx_gdrive(params$FASTA_PATH)
 
 ```
 
 
-Or when using the phyloseq created alongside this Rmd
+Or when using the `phyloseq` object created alongside this Rmd (in `r datadir`).
 
 ```
-my_ps = readRDS("phyloseq.rds")
+my_ps = readRDS(".../data_export/phyloseq.rds")
 ```

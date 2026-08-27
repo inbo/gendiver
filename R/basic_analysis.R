@@ -162,7 +162,7 @@ combine.obi_otu_tax = function(otu_df, tax_df){
 
 
 combine.ps_otu_tax = function(ps){
-  t_out <-merge(
+  t_out <- merge(
     as.data.frame(phyloseq::tax_table(ps)),
     as.data.frame(phyloseq::otu_table(ps)), by="row.names")
   row.names(t_out) = t_out$Row.names
