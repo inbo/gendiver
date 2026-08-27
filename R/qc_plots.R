@@ -196,7 +196,7 @@ qcplot.plate_heatmap_toptaxa = function(ps_obj, omit_cutoff = 100){
     ggplot2::geom_tile() +
     ggplot2::facet_wrap(~.data$PLATE_NOTES, ncol = 3, scales = "free") +
     ggplot2::scale_y_discrete(limits = rev(levels(sample_metadata$WELL_ROW))) +
-    ggplot2::scale_x_discrete(limits = rev(levels(sample_metadata$WELL_COLUMN))) +
+    ggplot2::scale_x_discrete(limits = levels(sample_metadata$WELL_COLUMN)) +
     ggplot2::theme_classic() + ggplot2::theme(legend.position="none") +
     ggplot2::ggtitle("Most abundant ASV per well",
             subtitle = paste("Colors correspond to top ASV, opacity to top ASV proportion in the sample. Samples with top ASV <", omit_cutoff, "reads are omitted")
@@ -245,7 +245,7 @@ qcplot.plate_heatmap_readcount = function(ps_obj, omit_cutoff = 100, transform="
     ggplot2::scale_fill_gradient(high="red", low="lightblue", transform=transform) +
     ggplot2::theme_classic() +
     ggplot2::scale_y_discrete(limits = rev(levels(sample_metadata$WELL_ROW))) +
-    ggplot2::scale_x_discrete(limits = rev(levels(sample_metadata$WELL_COLUMN))) +
+    ggplot2::scale_x_discrete(limits = levels(sample_metadata$WELL_COLUMN)) +
     ggplot2::ggtitle(paste0("Number of reads (",transform,") per well"),
             subtitle = paste0("Colors correspond total read number (",transform,"). Samples with < ", omit_cutoff, " reads are omitted")
     )
