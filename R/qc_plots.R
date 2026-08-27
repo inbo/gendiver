@@ -183,7 +183,13 @@ qcplot.plate_heatmap_toptaxa = function(ps_obj, omit_cutoff = 100){
   # plot(xx$TOP_ASV_PROP, xx$TOP_ASV_ALPHA)
 
   # remove NA samples and remove samples with low abundant top ASV (noise)
-  xx_p = xx[!is.na(xx$TOP_ASV) & xx$TOP_ASV_COUNT > omit_cutoff,]
+  xx_p = xx[!is.na(xx$TOP_ASV) & xx$TOP_ASV_COUNT >= omit_cutoff,]
+
+  # Check if there is data remaining
+  if (nrow(xx_p) == 0){
+    errorCondition("No data. Try lowering the omit_cutoff, or check your input object.")
+    return()
+    }
 
   plate_layout_plot = ggplot2::ggplot( data=xx_p, ggplot2::aes(
       x = .data$WELL_COLUMN, y=.data$WELL_ROW, fill=.data$TOP_ASV, alpha=.data$TOP_ASV_PROP)) +
@@ -223,6 +229,11 @@ qcplot.plate_heatmap_readcount = function(ps_obj, omit_cutoff = 100, transform="
   xx_p = merge(sample_metadata, tot_count, by=0,all.x = T)
   xx_p = xx_p[xx_p$total_reads >= omit_cutoff,]
   # xx_p$total_reads[xx_p$total_reads < omit_cutoff] = NA
+  # Check if there is data remaining
+  if (nrow(xx_p) == 0){
+    errorCondition("No data. Try lowering the omit_cutoff, or check your input object.")
+    return()
+  }
 
   plate_layout_plot = ggplot2::ggplot(
     data=xx_p,

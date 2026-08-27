@@ -407,7 +407,7 @@ qcplot.plate_column_asv_analysis(ps)
 
 summary(sample_sums(ps))
 
-omit_cutoff= round(median(sample_sums(ps)) * 0.01)
+omit_cutoff = round(median(sample_sums(ps)) * 0.01)
 
 qcplot.plate_heatmap_readcount(ps, omit_cutoff = omit_cutoff)
 
@@ -437,13 +437,18 @@ How do these classes spread over the plates, is this as expected?
 
 for (cct in unique(tax_table(ps)[, "custom_taxon"])){
   print(cct)
+
   ps_SELECT = subset_taxa(ps, custom_taxon == cct)
-
-  zpl = qcplot.plate_heatmap_readcount(ps_SELECT, omit_cutoff = omit_cutoff) + 
-    ggtitle(paste0("Read counts per well, only ", ID_cutoff, "ID reads, taxon=", cct ))
+  # taxa_omit = round(omit_cutoff * 0.1)
+  zpl = qcplot.plate_heatmap_readcount(ps_SELECT, omit_cutoff = 2) 
   
-  print(zpl)
-
+  if (!is.null(zpl)){
+    zpl = zpl + ggtitle(paste0("Read counts per well, only ", ID_cutoff, "ID reads, taxon=", cct ))
+    print(zpl)
+  } else{
+    message(paste("No samples with more than", taxa_omit, cct, "reads" ))
+  }
+  
 }
 ```
 
