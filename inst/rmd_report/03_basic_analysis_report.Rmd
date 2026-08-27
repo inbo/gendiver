@@ -318,8 +318,8 @@ names(control_plots) = controls
 csam.df = data.frame(sample_data(ps))
 csam.df = csam.df[csam.df$ANALYSE_TYPE %in% controls,]
 
-fH = max(length(unique(csam.df$TECHNICAL_REPLICATE_CODE)), 7)
-fW = min(25 , max(15,length(unique(csam.df$INDIVIDUAL_CODE))*0.7))
+fH = max(length(unique(csam.df$TECHNICAL_REPLICATE_CODE))*2, 8)
+fW = max(15 , min(25,length(unique(csam.df$INDIVIDUAL_CODE))*0.7))
 ```
 
 ```{r plot-c, fig.width=fW, fig.height=fH, echo=F, fig.align='center'}
@@ -383,7 +383,7 @@ if (length(control_plots) > 0){
 
 - redo basic analysis (for obitools data this is now a pruned set)
 
-```{r qc_vis_basic, echo=F}
+```{r qc_vis_basic, echo=F, eval=F}
 ### QC visualisation of data ###
 qcplot.basic_exploration(ps)
 ```
@@ -398,16 +398,21 @@ qcplot.plate_column_asv_analysis(ps)
 
 ## Plate readcount heatmap
 
-- I choose the cutoff as 1% of median sample
+```{r}
+
+summary(sample_sums(ps))
+
+omit_cutoff = round(median(sample_sums(ps)) * 0.01)
+```
+
+
+- I choose the cutoff as 1% of median sample (`r omit_cutoff`)
 
 
 ### All data
 
 ```{r, fig.width=15, fig.height=15}
 
-summary(sample_sums(ps))
-
-omit_cutoff = round(median(sample_sums(ps)) * 0.01)
 
 qcplot.plate_heatmap_readcount(ps, omit_cutoff = omit_cutoff)
 
@@ -437,24 +442,38 @@ How do these taxa spread over the plates, is this as expected?
 I use 1% of the previously determined "minimum reads for a successful sample" as the minimum reads of the selected taxa for a sample to be plotted (`r round(omit_cutoff * 0.1) `).
 
 
-```{r zoom-heatmap, fig.width=15, fig.height=15}
+```{r zoom-heatmap}
+zh_list = list()
 
-for (cct in unique(tax_table(ps)[, "custom_taxon"])){
-  print(cct)
+ttdf = data.frame(tax_table(ps)[, "custom_taxon"])
 
-  ps_SELECT = subset_taxa(ps, custom_taxon == cct)
+ct_list = unique(ttdf$custom_taxon)
+
+for (cct in ct_list){
+  ps_SELECT = prune_taxa(ttdf$custom_taxon == cct, ps)
   taxa_omit = round(omit_cutoff * 0.1)
   zpl = qcplot.plate_heatmap_readcount(ps_SELECT, omit_cutoff = taxa_omit) 
   
   if (!is.null(zpl)){
     zpl = zpl + ggtitle(paste0("Read counts per well, only ", ID_cutoff, "ID reads, taxon=", cct ))
-    print(zpl)
-  } else{
-    message(paste("No samples with more than", taxa_omit, cct, "reads" ))
+
+  } else {
+    zpl=paste("No samples with more than", taxa_omit, cct, "reads" )
   }
   
+  zh_list[[cct]] = zpl
+  
 }
+
 ```
+
+```{r zh-plot, fig.width=15, fig.height=10}
+
+zh_list
+
+```
+
+
 
 To get an overview of amplicons on the plate, and if the patterns match the expectations we can plot the most abundant ASV for each well
 
@@ -487,7 +506,6 @@ ps_topX = tax_glom(ps_topX, "custom_taxon")
 - Remove control samples
 - Only look at top `r x_cutoff` top abundant ASVs (reads) to reduce data -> this amounts to `r round(sum(taxa_sums(ps_topX))/sum(taxa_sums(ps_samples)) *100, 2)`% of data
 - group on custom taxonomy
-
 
 
 ```{r plot_bar, fig.height=25, fig.width=30, warning=F, echo=F, , fig.align='center'}
@@ -545,7 +563,8 @@ ggplot(data=plotdata) +
 # Project data
 
 - split the data in projects and visualize
-- **These plots can be found in a supplementary folder alongside this report!**
+- **These plots can be found in a supplementary folder alongside this report!** 
+- (`r SUPP_DIR`)
 
 ```{r export-ppbar-plots, warning=F}
 
