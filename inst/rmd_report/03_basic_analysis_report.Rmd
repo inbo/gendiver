@@ -419,7 +419,7 @@ qcplot.plate_heatmap_readcount(ps, omit_cutoff = omit_cutoff, transform = "log")
 
 - samples with less than `r omit_cutoff` (1% of median) reads
 
-```{r failes-samples-view, fig.width=15, fig.height=}
+```{r failed-samples-view, fig.width=15, fig.height=5}
 
 
 failedsamples = prune_samples(sample_sums(ps) < omit_cutoff, ps)
