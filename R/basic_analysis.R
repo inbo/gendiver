@@ -235,20 +235,20 @@ export.data_sets = function(
   message("Writing 'raw_table_sorted.tsv' ...")
   utils::write.table(
     table_sorted,
-    file=file.path(PRJ_DIR, paste0(PROJ_NAME, "_raw_table_sorted.tsv")),
+    file=file.path(PRJ_DIR, paste0(PROJ_NAME, "_all_reads.tsv")),
     sep="\t", row.names=T, col.names=NA, quote=F)
 
   message("Writing 'unknowns.tsv' ...")
   #write to output
   utils::write.table(
     unknowns,
-    file=file.path(PRJ_DIR, paste0(PROJ_NAME, "_ID", ID_cutoff,"_unknowns.tsv")),
+    file=file.path(PRJ_DIR, paste0(PROJ_NAME, "_ID", ID_cutoff,"_unknown_reads.tsv")),
     sep="\t",row.names=F,col.names=T,quote=F)
 
   message("Writing 'filtered_table_sorted.txt' ...")
   utils::write.table(
     table.filt,
-    file.path(PRJ_DIR, paste0(PROJ_NAME, "_ID",ID_cutoff, ".tsv")),
+    file.path(PRJ_DIR, paste0(PROJ_NAME, "_ID",ID_cutoff, "_reads.tsv")),
     sep="\t",row.names=F,col.names=T,quote=F)
 
   message("Writing 'filtered_table_sorted_RRA.txt' ...")
@@ -260,23 +260,23 @@ export.data_sets = function(
   message("Writing 'agglomerated_species.tsv' ...")
   utils::write.table(
     table.filt.taxglom,
-    file.path(PRJ_DIR, paste0(PROJ_NAME, "_ID",ID_cutoff, "_species.tsv")),
+    file.path(PRJ_DIR, paste0(PROJ_NAME, "_ID",ID_cutoff, "_species_reads.tsv")),
     sep="\t",row.names=F,col.names=T,quote=F)
 
   message("Writing 'agglomerated_species_RRA.tsv' ...")
   utils::write.table(
     table.filt.taxglom.RRA,
-    file.path(PRJ_DIR, paste0(PROJ_NAME, "_minID_",ID_cutoff, "_species_RRA.tsv")),
+    file.path(PRJ_DIR, paste0(PROJ_NAME, "_ID",ID_cutoff, "_species_RRA.tsv")),
     sep="\t",row.names=F,col.names=T,quote=F)
 
   message("Writing 'phyloseq.rds' ...")
-  saveRDS(myps, file.path(PRJ_DIR, paste0(PROJ_NAME, "_phyloseq", "_ID",ID_cutoff ,".rds" )))
+  saveRDS(myps, file.path(PRJ_DIR, paste0(PROJ_NAME, "_ID",ID_cutoff , "_phyloseq", ".rds" )))
 
   #write number of left reads to file
   message("Writing 'number_of_reads_after_processing.tsv' ...")
   utils::write.table(
     as.data.frame(phyloseq::sample_sums(myps)),
-    file.path(PRJ_DIR, paste0(PROJ_NAME, "_number_of_reads_after_processing.tsv")),
+    file.path(PRJ_DIR, paste0(PROJ_NAME, "_ID",ID_cutoff,"sample_readcount", ".tsv")),
     sep="\t",row.names=T,col.names=F,quote=F)
 
   message("Done!")
