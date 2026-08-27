@@ -23,10 +23,10 @@ Imports:
     googledrive,
     Biostrings,
     reshape2,
-    vegan
+    vegan,
+    phyloseq
 Suggests: 
     testthat (>= 3.0.0),
     rmarkdown,
-    phyloseq
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.1.0
