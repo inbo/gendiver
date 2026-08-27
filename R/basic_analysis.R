@@ -248,29 +248,29 @@ export.data_sets = function(
   message("Writing 'filtered_table_sorted.txt' ...")
   utils::write.table(
     table.filt,
-    file.path(PRJ_DIR, paste0(PROJ_NAME, "_filtered_minID_",ID_cutoff, "_table_sorted.tsv")),
+    file.path(PRJ_DIR, paste0(PROJ_NAME, "_ID",ID_cutoff, ".tsv")),
     sep="\t",row.names=F,col.names=T,quote=F)
 
   message("Writing 'filtered_table_sorted_RRA.txt' ...")
   utils::write.table(
     table.filt.RRA,
-    file.path(PRJ_DIR, paste0(PROJ_NAME, "_filtered_minID_",ID_cutoff, "_table_sorted_RRA.tsv")),
+    file.path(PRJ_DIR, paste0(PROJ_NAME, "_ID",ID_cutoff, "_RRA.tsv")),
     sep="\t",row.names=F,col.names=T,quote=F)
 
   message("Writing 'agglomerated_species.tsv' ...")
   utils::write.table(
     table.filt.taxglom,
-    file.path(PRJ_DIR, paste0(PROJ_NAME, "_filtered_minID_",ID_cutoff, "_agglomerated_species.tsv")),
+    file.path(PRJ_DIR, paste0(PROJ_NAME, "_ID",ID_cutoff, "_species.tsv")),
     sep="\t",row.names=F,col.names=T,quote=F)
 
   message("Writing 'agglomerated_species_RRA.tsv' ...")
   utils::write.table(
     table.filt.taxglom.RRA,
-    file.path(PRJ_DIR, paste0(PROJ_NAME, "_filtered_minID_",ID_cutoff, "_agglomerated_species_RRA.tsv")),
+    file.path(PRJ_DIR, paste0(PROJ_NAME, "_minID_",ID_cutoff, "_species_RRA.tsv")),
     sep="\t",row.names=F,col.names=T,quote=F)
 
   message("Writing 'phyloseq.rds' ...")
-  saveRDS(myps, file.path(PRJ_DIR, paste0(PROJ_NAME, "_phyloseq_", "minID_",ID_cutoff ,".rds" )))
+  saveRDS(myps, file.path(PRJ_DIR, paste0(PROJ_NAME, "_phyloseq", "_ID",ID_cutoff ,".rds" )))
 
   #write number of left reads to file
   message("Writing 'number_of_reads_after_processing.tsv' ...")
