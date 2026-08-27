@@ -22,10 +22,11 @@ Imports:
     data.table,
     googledrive,
     Biostrings,
-    reshape2
-RoxygenNote: 7.3.1
+    reshape2,
+    vegan,
+    phyloseq
 Suggests: 
     testthat (>= 3.0.0),
     rmarkdown,
-    phyloseq
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.1.0

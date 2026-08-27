@@ -72,6 +72,10 @@ if (! file.exists(fasta_path)) {
 
 PROJ_NAME = gsub("\\..*", "", basename(otu_tab_path))
 SS_NAME = googledrive::drive_get(params$SAMPLE_SHEET_URL)$name
+
+
+SUPP_DIR = file.path(params$OUT_DIR, "supplementary")
+dir.create(SUPP_DIR)
 ```
 
 - Used lab sample sheet: `r SS_NAME`
@@ -108,73 +112,45 @@ if (grepl("sintax", tax_tab_path, ignore.case = T)){
 } else if(grepl("obitools3", tax_tab_path, ignore.case = T)){
   #Read OTU table and tax table, and explore data
   tax_df_raw <- read.taxonomy_obitools3(params$TAX_PATH)
-  tax_df = select.taxonomy_obitools3(tax_df_raw, min_BEST_ID = 1, fillNA = F)
-  
+  tax_df = select.taxonomy_obitools3(tax_df_raw, min_BEST_ID = 0, fillNA = F)
   
   # seqs = seqs[row.names(tax_df)]
   TAX_TOOL="OBITOOLS3"
 
 } 
+  
+```
 
+```{r raw-ps}
+ps = phyloseq(
+  otu_table(otu_df, taxa_are_rows = TRUE),
+  tax_table(as.matrix(tax_df)),
+  sample_data(sample_sheet),
+  seqs
+)
+ps
 ```
 
 \break
+
+# Export datasets
+
+```{r export-edna-water, eval=(TAX_TOOL == "OBITOOLS3")}
+datadir = file.path(params$OUT_DIR, "data_export")
+dir.create(datadir)
+gendiver::export.data_sets(
+  sample_sheet_df = sample_sheet, otu_df = otu_df, tax_df = tax_df_raw, out_path = datadir)
+```
+
+```{r export-ps}
+saveRDS(ps, file.path(paste0(PROJ_NAME, "_phyloseq_raw.rds" )))
+```
 
 # Basic exploration of Operational Data
 
 ```{r basic-explore, fig.width=10, echo=F, fig.align='center'}
 
-## BASIC EXPLORATION PLOTS
-annot_overview=colSums(!is.na(tax_df))
-annot_overview = annot_overview[names(annot_overview) != "custom_taxon"]
-annot_overview = c(nrow(tax_df), annot_overview)
-names(annot_overview)[1] = 'TOTAL'
-full_sub =paste0(basename(otu_tab_path), "\n",basename(tax_tab_path))
-barplot(annot_overview, main="Taxonomy assignments overview - OTUs", ylab = "Number of OTUs", sub=full_sub)
-print(annot_overview, row.names = F)
-
-tax_df_rc = tax_df
-otu_tot_rc = rowSums(otu_df)
-tax_df_rc$read_count = NA
-tax_df_rc[names(otu_tot_rc), c("read_count")] = otu_tot_rc
-rm(otu_tot_rc)
-
-# remove taxonomy not in OTU table
-tax_df_rc = tax_df_rc[!is.na(tax_df_rc$read_count),]
-
-tb_rc = sapply(colnames(tax_df), function(x) sum(tax_df_rc$read_count[!is.na(tax_df_rc[[x]])]))
-annot_overview2 = tb_rc[names(tb_rc) != "custom_taxon"]
-annot_overview2 = c(sum(tax_df_rc$read_count), annot_overview2)
-rm(tax_df_rc)
-
-names(annot_overview2)[1] = 'TOTAL'
-barplot(annot_overview2, main="Taxonomy assignments overview - READS", ylab = "Number of reads", sub=full_sub)
-print(annot_overview2, row.names = F)
-
-# Sequence length
-# remove sequences not in OTU table
-seqs = seqs[rownames(otu_df)]
-asv_lengths = width(seqs)
-
-hist(asv_lengths, breaks = 100, main = "All data: OTU seq length", sub=basename(fasta_path) ,xlab = "Length (bp)")
-
-reads_length = data.frame("reads"=rowSums(otu_df), "length"=asv_lengths)
-rm(asv_lengths)
-
-len_reads.df = aggregate(reads~length, reads_length, sum)
-rm(reads_length)
-
-plot(len_reads.df, main = "All data: Per ASV-length the number of reads",
-     sub=basename(otu_tab_path), xlab = "ASV length")
-
-plot(cbind(len_reads.df$length, cumsum(len_reads.df$reads)), main = "All data: Per ASV-length the number of reads",
-     sub=basename(otu_tab_path), xlab = "ASV length", ylab="Cumulative sum reads")
-
-hist(rowSums(otu_df), breaks = 100, main = "All data: Per OTU reads", sub=basename(otu_tab_path), 
-     xlab = "Total number of reads")
-
-hist(colSums(otu_df), breaks = 100, main = "All data: Per sample reads", sub=basename(otu_tab_path),
-     xlab = "Total number of reads")
+gendiver::qcplot.basic_exploration(ps)
 
 ```
 
@@ -194,63 +170,6 @@ ID_p = aggregate(data=ID_p,  read_count ~ BEST_ID_floor, sum)
 plot(ID_p$BEST_ID_floor, ID_p$read_count, main = "All data: BEST_IDENTITY per Reads",
      sub=basename(tax_tab_path) ,xlab = "BEST_IDENTITY", ylab="number of reads")
 ```
-
-
-# Taxonomic annotation per SAMPLE/AMPLICON
-
-```{r pss_plot-prep, echo=F}
-
-tax_df_no_custom=tax_df[,!grepl("custom",colnames(tax_df))]
-max_rank = function(x) if (sum(!is.na(x)) > 0) colnames(tax_df_no_custom)[max(which(!is.na(x)))] else "_root"
-base_rank = apply(tax_df_no_custom, FUN=max_rank, MARGIN=1)
-table(base_rank)
-
-otu_df_rank = otu_df
-otu_df_rank$max_tax_rank = base_rank[row.names(otu_df_rank)]
-rm(base_rank)
-
-otu_df_rank = reshape2::melt(otu_df_rank, id.vars=c("max_tax_rank"), value.name = "read_count", variable.name="USI")
-otu_df_rank = aggregate(data=otu_df_rank, read_count ~ max_tax_rank + USI, sum)
-
-# rank on non-lowest level (aka how many reads not species level annot)
-llv = tail(colnames(tax_df),1)
-usilvl = otu_df_rank
-if (length(unique(otu_df_rank$max_tax_rank)) != llv) {usilvl = aggregate(data=otu_df_rank[otu_df_rank$max_tax_rank != llv,], read_count ~ USI, sum)}
-usilvl = usilvl$USI[order(usilvl$read_count, decreasing = F)]
-
-otu_df_rank$USI = factor(otu_df_rank$USI, levels=usilvl)
-otu_df_rank$max_tax_rank = factor(otu_df_rank$max_tax_rank, levels = rev(c("_root", colnames(tax_df_no_custom))))
-rm(tax_df_no_custom)
-
-pss_plot = ggplot(data=otu_df_rank, aes(x=USI, y=read_count, fill = max_tax_rank)) + geom_col(position = "stack") + 
-  coord_flip() + ggtitle("Total sample reads by maximum taxonomic level", subtitle = paste0(basename(otu_tab_path), "\n",basename(tax_tab_path))) +
-    theme(legend.text = element_text(size=12),
-        legend.key.size=unit(0.4, "cm"),
-        legend.position="top") +
-  scale_y_continuous(expand = c(0,0))
-
-rm(otu_df_rank)
-invisible(gc())
-sfigh = min(150, ncol(otu_df)*0.2)
-
-```
-
-```{r pss_plot, fig.height=sfigh, fig.width=20, echo=F, fig.align='center'}
-pss_plot
-```
-
-- This might be quite small for the number of samples/amplicons
-- Check the generated supplement `.pdf`
-
-```{r pss_plot-ggsave, echo=F}
-ggfname=paste0("operational-data-QC-report-supplement-fig.pdf")
-ggoutp = file.path(params$OUT_DIR,ggfname)
-print(ggfname)
-ggsave(ggoutp, pss_plot, width = 25, height = ncol(otu_df)*0.2, limitsize = FALSE)
-rm(pss_plot)
-invisible(gc())
-```
-
 
 ```{r obi3-ID-check, eval=(TAX_TOOL == "OBITOOLS3"), results='asis' ,echo=F}
 ID_cutoff=1
@@ -278,13 +197,14 @@ obi_ID_plot = ggplot(data=obitoolsID_pl, aes(x=USI, y=read_count, fill=KEEP)) +
         legend.position="top") +
   scale_y_continuous(expand = c(0,0)) + scale_fill_brewer(palette="Dark2")
 
+sfigh = min(150, ncol(otu_df)*0.2)
 ```
 
 ```{r obi3-ID-plot, eval=(TAX_TOOL == "OBITOOLS3"), fig.height=sfigh, fig.width=20, fig.align='center'}
 print(obi_ID_plot)
 
-ggfname1 =paste0("operational-data-QC-report-supplement-fig-bis.pdf")
-ggoutp1 = file.path(params$OUT_DIR,ggfname1)
+ggfname1 =paste0("obitools-ID-coverage.pdf")
+ggoutp1 = file.path(SUPP_DIR, ggfname1)
 print(ggfname1)
 ggsave(ggoutp1, obi_ID_plot, width = 25, height = ncol(otu_df)*0.2 , limitsize = FALSE)
 invisible(gc())
@@ -325,6 +245,16 @@ kable(max_prev_unk, caption = paste0("non ID", ID_cutoff, " OTUs - ", showN, " M
 #//// after discussion
 ```
 
+```{r obi3-tax-df, eval=(TAX_TOOL == "OBITOOLS3")}
+# remake tax_df as all ID1 ASVs
+tax_df = select.taxonomy_obitools3(tax_df_raw, min_BEST_ID = ID_cutoff, fillNA = F)
+
+rm_unk_reads = sum(colSums(otu_df[row.names(tax_df),]))
+rm_unk = 100*(1 - rm_unk_reads/ sum(colSums(otu_df)))
+
+message(paste0("[INFO] This removes ", rm_unk_reads, " (",round(rm_unk, 2), "%) reads"))
+
+```
 
 
 # Make Phyloseq object
@@ -346,7 +276,34 @@ rm(otu_df, tax_df, seqs)
 invisible(gc())
 ```
 
-## Check CONTROL samples/amplicons
+# Taxonomic annotation per SAMPLE/AMPLICON
+
+```{r pss_plot-prep, echo=F}
+
+pss_plot = qcplot.sample_barplot_taxonomic_coverage(ps)
+
+invisible(gc())
+
+```
+
+```{r pss_plot, fig.height=sfigh, fig.width=20, echo=F, fig.align='center'}
+pss_plot
+```
+
+- This might be quite small for the number of samples/amplicons
+- Check the generated supplement `.pdf`
+
+```{r pss_plot-ggsave, echo=F}
+ggfname=paste0("taxonomic-annotation-coverage.pdf")
+ggoutp = file.path(SUPP_DIR,ggfname)
+print(ggfname)
+ggsave(ggoutp, pss_plot, width = 25, height = sfigh, limitsize = FALSE)
+rm(pss_plot)
+invisible(gc())
+```
+
+
+# CONTROL samples/amplicons
 
 ```{r show-c, echo=F}
 type.tb = table(sample_data(ps)$ANALYSE_TYPE)
@@ -361,8 +318,8 @@ names(control_plots) = controls
 csam.df = data.frame(sample_data(ps))
 csam.df = csam.df[csam.df$ANALYSE_TYPE %in% controls,]
 
-fH = max(length(unique(csam.df$TECHNICAL_REPLICATE_CODE)), 7)
-fW = min(10 , max(6,length(unique(csam.df$INDIVIDUAL_CODE))*0.7))
+fH = max(length(unique(csam.df$TECHNICAL_REPLICATE_CODE))*2, 8)
+fW = max(15 , min(25,length(unique(csam.df$INDIVIDUAL_CODE))*0.7))
 ```
 
 ```{r plot-c, fig.width=fW, fig.height=fH, echo=F, fig.align='center'}
@@ -409,7 +366,7 @@ if (length(control_plots) > 0){
     p_overview_control_species = plot_bar(ps_control, fill = "top_taxa", x = "INDIVIDUAL_CODE") + 
     facet_grid(rows = vars(TECHNICAL_REPLICATE))+
     ggtitle(paste(controls[i], "- top",topx,"taxa"), subtitle = PROJ_NAME) +
-      theme(legend.position="top") +
+      theme(legend.position="top", legend.text = element_text(size=8)) +
     scale_y_continuous(expand = c(0,0)) 
     print(p_overview_control_species)
     }
@@ -422,12 +379,121 @@ if (length(control_plots) > 0){
 ```
 
 
-## Overview
+# Overview of PS object
 
-```{r MB-samples-overview, echo=F}
+- redo basic analysis (for obitools data this is now a pruned set)
+
+```{r qc_vis_basic, echo=F, eval=F}
+### QC visualisation of data ###
+qcplot.basic_exploration(ps)
+```
+
+## Plate column analysis
+
+- To check for column swaps
+
+```{r qc_vis_columns, echo=F, warning=F, eval=(TAX_TOOL == "OBITOOLS3")}
+qcplot.plate_column_asv_analysis(ps)
+```
+
+## Plate readcount heatmap
+
+```{r}
+
+summary(sample_sums(ps))
+
+omit_cutoff = round(median(sample_sums(ps)) * 0.01)
+```
+
+
+- I choose the cutoff as 1% of median sample (`r omit_cutoff`)
+
+
+### All data
+
+```{r, fig.width=15, fig.height=15}
+
+
+qcplot.plate_heatmap_readcount(ps, omit_cutoff = omit_cutoff)
+
+qcplot.plate_heatmap_readcount(ps, omit_cutoff = omit_cutoff, transform = "log")
+
+```
+
+### Inspect the low read "failed" samples
+
+- samples with less than `r omit_cutoff` (1% of median) reads
+
+```{r failed-samples-create}
+failedsamples = prune_samples(sample_sums(ps) < omit_cutoff, ps)
+failedsamples = prune_taxa(taxa_sums(failedsamples) > 0, failedsamples)
+```
+
+
+```{r failed-samples-view, fig.width=15, fig.height=8}
+make.taxa_barplot(failedsamples, taxa_rank = "species", taxa_excl = NA) + ggtitle(paste0('Samples with < ', omit_cutoff, ' (1% of median) reads'))
+```
+
+
+Check this for the custom taxons as well. 
+
+How do these taxa spread over the plates, is this as expected?
+
+I use 1% of the previously determined "minimum reads for a successful sample" as the minimum reads of the selected taxa for a sample to be plotted (`r round(omit_cutoff * 0.1) `).
+
+
+```{r zoom-heatmap}
+zh_list = list()
+
+ttdf = data.frame(tax_table(ps)[, "custom_taxon"])
+
+ct_list = unique(ttdf$custom_taxon)
+
+for (cct in ct_list){
+  ps_SELECT = prune_taxa(ttdf$custom_taxon == cct, ps)
+  taxa_omit = round(omit_cutoff * 0.1)
+  zpl = qcplot.plate_heatmap_readcount(ps_SELECT, omit_cutoff = taxa_omit) 
+  
+  if (!is.null(zpl)){
+    zpl = zpl + ggtitle(paste0("Read counts per well, only ", ID_cutoff, "ID reads, taxon=", cct ))
+
+  } else {
+    zpl=paste("No samples with more than", taxa_omit, cct, "reads" )
+  }
+  
+  zh_list[[cct]] = zpl
+  
+}
+
+```
+
+```{r zh-plot, fig.width=15, fig.height=10}
+
+zh_list
+
+```
+
+
+
+To get an overview of amplicons on the plate, and if the patterns match the expectations we can plot the most abundant ASV for each well
+
+
+```{r fig.width=15, fig.height=15}
+
+# summary(taxa_sums(ps))
+
+qcplot.plate_heatmap_toptaxa(ps, omit_cutoff = 100)
+```
+
+# Experiment data
+
+```{r sample_ps, echo=F}
 ### Inspect Samples ###
 ps_samples = subset_samples(ps, ANALYSE_TYPE_CODE=="999")
+```
 
+
+```{r MB-samples-overview, echo=F}
 # Look at top x ASVs (reduce for taxglom)
 x_cutoff= 5000
 topX = names(taxa_sums(ps_samples)[order(taxa_sums(ps_samples), decreasing = T)][1:min(ntaxa(ps_samples) ,x_cutoff)])
@@ -441,6 +507,7 @@ ps_topX = tax_glom(ps_topX, "custom_taxon")
 - Only look at top `r x_cutoff` top abundant ASVs (reads) to reduce data -> this amounts to `r round(sum(taxa_sums(ps_topX))/sum(taxa_sums(ps_samples)) *100, 2)`% of data
 - group on custom taxonomy
 
+
 ```{r plot_bar, fig.height=25, fig.width=30, warning=F, echo=F, , fig.align='center'}
 normalized_ps = transform_sample_counts(ps_topX, function(OTU) OTU/sum(OTU) * 100)
   
@@ -450,6 +517,59 @@ plot_bar(normalized_ps, fill = "custom_taxon", x="INDIVIDUAL_CODE") +
   ggtitle(paste(PROJ_NAME)) + ylab('Relative abundance (%)') +  theme(legend.position = "bottom")
 rm(normalized_ps)
 invisible(gc())
+```
+
+
+# OTU abundance
+
+REMOVE SEQUENCE VARIANTS WITH LOW OVERALL ABUNDANCE
+
+
+Sequence variants that occur in very minor amounts are usually not interesting.
+
+We check how much read data we loose when we remove the sequences with number of reads lower than a certain threshold by constructing a plot.
+
+The plot shows how many reads are still left when using a certain threshold
+
+```{r}
+
+rownumber<-1
+cutoff<-seq(10, 100000, by=10)    #we vary the cutoff from 10 to 100k in steps of 10
+plotdata<-data.frame("cutoff" = cutoff,
+                     "nr_reads" = NA,
+                     "nr_otu" = NA)
+otu_tot_data = taxa_sums(ps)
+
+for (i in 1:nrow(plotdata)){
+  plotdata[i, 2] = sum(otu_tot_data[otu_tot_data > plotdata$cutoff[i]])
+  plotdata[i, 3] = sum(otu_tot_data > plotdata$cutoff[i])
+}
+
+plotdata$nr_reads_percent = 100 * plotdata$nr_reads / sum(otu_tot_data)
+plotdata$nr_otu_percent = 100 * plotdata$nr_otu / length(otu_tot_data)
+
+ggplot(data=plotdata) +
+  geom_line(aes(x=cutoff,y=nr_reads_percent)) + ggtitle("Reads remaining per minR") +
+  labs(x="Minimum Reads Per Taxa filtering cutoff (minR)",y="Percentage of reads kept")
+
+ggplot(data=plotdata) +
+  geom_line(aes(x=cutoff,y=nr_otu_percent)) + ggtitle("OTUs remaining per minR") +
+  labs(x="Minimum Reads Per Taxa filtering cutoff (minR)",y="Percentage of OTUs kept")
+```
+
+
+- These plots can be an inspiration to choose the actual minR for data analysis
+
+# Project data
+
+- split the data in projects and visualize
+- **These plots can be found in a supplementary folder alongside this report!** 
+- (`r SUPP_DIR`)
+
+```{r export-ppbar-plots, warning=F}
+
+make.default_project_barplots(ps, RRA=F, out_path = file.path(SUPP_DIR, "project_barplots"))
+make.default_project_barplots(ps, RRA=T, out_path = file.path(SUPP_DIR, "project_barplots_RRA"))
 ```
 
 
@@ -653,6 +773,7 @@ for (ttab in tb_list){
 
 ```
 
+
 # More questions?
 
 You can quite easily load the data into an R session using gendiver:
@@ -663,24 +784,41 @@ Use the following links/paths:
 
 NOTE: you can replace PATHS with the URL of files on the GDRIVE!
 
-- `params$SAMPLE_SHEET_URL`: `r params$SAMPLE_SHEET_URL`
-- `params$OTU_PATH`: `r params$OTU_PATH`
-- `params$TAX_PATH`: `r params$TAX_PATH`
-- `params$FASTA_PATH`: `r params$FASTA_PATH`
+`params$SAMPLE_SHEET_URL` = `r params$SAMPLE_SHEET_URL`
+
+`params$OTU_PATH` = `r params$OTU_PATH`
+
+`params$TAX_PATH` = `r params$TAX_PATH`
+
+`params$FASTA_PATH` = `r params$FASTA_PATH`
 
 Examples to load in data (see also INPUT segment of this report):
 
-```{r example-load, eval=F, echo = T}
+```
 # Load custom R-pkg
 library(gendiver)
 
+# read sample sheet
 my_sample_data = read.sample_sheet_lab(params$SAMPLE_SHEET_URL)
 
+# read OTU table
 my_otu_tab = read.otu_table_vsearch(params$OTU_PATH)
 
+# read taxonomy table (different functions for different tools!)
 my_tax_tab = read.taxonomy_sintax(params$TAX_PATH)
+my_tax_tab = read.taxonomy_obitools3()
 
+# [optional]  select ID1 taxa from obitools3 data
+my_tax_tab = select.taxonomy_obitools3(my_tax_tab)
+
+# read FASTA file
 my_seqs = read.fastx_gdrive(params$FASTA_PATH)
 
 ```
 
+
+Or when using the `phyloseq` object created alongside this Rmd (in `r datadir`).
+
+```
+my_ps = readRDS(".../data_export/phyloseq.rds")
+```
