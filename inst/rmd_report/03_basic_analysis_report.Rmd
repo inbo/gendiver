@@ -434,10 +434,10 @@ Check this for the custom taxon classes as well.
 How do these classes spread over the plates, is this as expected?
 
 ```{r zoom-heatmap, fig.width=15, fig.height=15}
+
 for (cct in unique(tax_table(ps)[, "custom_taxon"])){
-  omit_cutoff=1000
   print(cct)
-  ps_SELECT = subset_taxa(ps, custom_taxon==cct)
+  ps_SELECT = subset_taxa(ps, custom_taxon == cct)
 
   zpl = qcplot.plate_heatmap_readcount(ps_SELECT, omit_cutoff = omit_cutoff) + 
     ggtitle(paste0("Read counts per well, only ", ID_cutoff, "ID reads, taxon=", cct ))
