@@ -35,8 +35,12 @@ make.taxa_barplot = function(ps_obj, taxa_rank="species", taxa_select=NA, taxa_e
   }
 
   # Filter low read taxa
-  cutoff_mask = rowSums(phyloseq::otu_table(ps_obj)) / sum(rowSums(phyloseq::otu_table(ps_obj))) * 100
-  ps_obj = phyloseq::prune_taxa(cutoff_mask > cutoff, ps_obj)
+  cutoff_mask = rowSums(phyloseq::otu_table(ps_obj)) / sum(rowSums(phyloseq::otu_table(ps_obj))) * 100 > cutoff
+  if (sum(cutoff_mask) == 0){
+    message(paste0("No more data after applying taxa cutoff: ", cutoff, "%"))
+    return(ggplot2::ggplot())
+  }
+  ps_obj = phyloseq::prune_taxa(cutoff_mask, ps_obj)
 
   # Remove any 0 read taxa (if any)
   ps_obj = phyloseq::prune_taxa(phyloseq::taxa_sums(ps_obj) > 0, ps_obj)
@@ -110,6 +114,11 @@ make.default_project_barplots = function(ps_obj, RRA=F, out_path=NA){
       sub_ps, taxa_rank = "species", taxa_select = NA, RRA = RRA,
       cutoff = cutoff_pct) +
       ggplot2::ggtitle(title_text3)
+
+    # funky project names don't go well with writing filenames
+    title_text1="overview"
+    title_text2="amphibia_fish"
+    title_text3="all_species"
 
     if (!is.na(out_path)){
       # save
