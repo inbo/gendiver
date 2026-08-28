@@ -10,7 +10,7 @@
 #' @param taxa_rank Taxonomic rank to visualise the data on
 #' @param taxa_select String to select the data to plot based on taxonomy. Multiple taxonomies can be passed using "|". Taxonomies do not have to be of the same level, and are case insensitive. E.g. taxa_select='Amphibia|Homo sapiens`
 #' @param taxa_excl String to select the taxonomies to exclude from the data before plotting. Same logic applies as for taxa_select. (Default 'Homo')
-#' @param cutoff integer, remove taxa that have less than n percent reads in the dataset.
+#' @param cutoff numeric, remove taxa that have less than n percent reads in the dataset.
 #' @param RRA Convert reads to relative read abundance (RRA) per sample. (Default FALSE)
 #'
 #' @returns ggplot2 object
@@ -292,24 +292,33 @@ export.data_sets = function(
 #' @param otu_df Data frame of OTU/ASV table
 #' @param tax_df Data frame with taxonomic annotation data
 #' @param sample_sheet_df Data frame of (lab) sample sheet
+#' @param merge_col Column name of `sample_sheet_df` to merge on. (default="INDIVIDUAL")
 #'
 #' @returns phyloseq object
 #' @export
 #'
 #' @examples
 #' #To add
-ps.merge_replicates = function(otu_df, tax_df, sample_sheet_df){
+data.merge_replicates = function(otu_df, tax_df, sample_sheet_df, merge_col="INDIVIDUAL"){
+
   ## First RRA
-  otu_rra = vegan::decostand(otu_df, method = "total", MARGIN = 2)
+  otu_rra = vegan::decostand(otu_df, method = "total", MARGIN = 2, na.rm = T)
+
   ## Then, merge replicate per filter - mean()
-  x = merge(t(otu_rra), sample_sheet_df[, "filter_code", drop=F], by=0)
-  x = stats::aggregate(data=x[-1], .~filter_code, mean)
+  # sample_sheet_df$MERGE_ID = sample_sheet_df[[merge_col]]
+
+  x = merge(t(otu_rra), sample_sheet_df[, merge_col, drop=F] , by=0)
+  x[[1]] = x[[merge_col]]
+  x[[merge_col]] = NULL
+
+  x = stats::aggregate(x=x[-1], by=list(x[[1]]), mean)
+
   otu_rra_merged = data.frame(t(x[-1]))
   colnames(otu_rra_merged) = x[[1]]
 
   # Update Sample data
-  ss_merged = sample_sheet_df[!duplicated(sample_sheet_df$filter_code),]
-  rownames(ss_merged) = ss_merged$filter_code
+  ss_merged = sample_sheet_df[!duplicated(sample_sheet_df[[merge_col]]),]
+  rownames(ss_merged) = ss_merged[[merge_col]]
 
   ## make PS
   ps = phyloseq::phyloseq(
@@ -321,3 +330,23 @@ ps.merge_replicates = function(otu_df, tax_df, sample_sheet_df){
   return(ps)
 }
 
+
+#' Merge technical replicates into samples
+#'
+#' Merge the data from (generally 3) replicate amplicons into a single sample. Here, this is done by taking the average of each replicate's relative read abundance (RRA).
+#'
+#' @param ps_obj phyloseq object with sample_data() containing "INDIVIDUAL"
+#'
+#' @returns phyloseq object
+#' @export
+#'
+#' @examples
+#' #To add
+ps.merge_replicates = function(ps_obj){
+  x = data.merge_replicates(
+    otu_df = phyloseq::otu_table(ps_obj),
+    tax_df = data.frame(phyloseq::tax_table(ps_obj)),
+    sample_sheet_df = data.frame(phyloseq::sample_data(ps_obj))
+  )
+   return(x)
+}

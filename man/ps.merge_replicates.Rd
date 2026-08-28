@@ -4,14 +4,10 @@
 \alias{ps.merge_replicates}
 \title{Merge technical replicates into samples}
 \usage{
-ps.merge_replicates(otu_df, tax_df, sample_sheet_df)
+ps.merge_replicates(ps_obj)
 }
 \arguments{
-\item{otu_df}{Data frame of OTU/ASV table}
-
-\item{tax_df}{Data frame with taxonomic annotation data}
-
-\item{sample_sheet_df}{Data frame of (lab) sample sheet}
+\item{ps_obj}{phyloseq object with sample_data() containing "INDIVIDUAL"}
 }
 \value{
 phyloseq object
