@@ -425,12 +425,22 @@ qcplot.plate_heatmap_readcount(ps, omit_cutoff = omit_cutoff, transform = "log")
 - samples with less than `r omit_cutoff` (1% of median) reads
 
 ```{r failed-samples-create}
-failedsamples = prune_samples(sample_sums(ps) < omit_cutoff, ps)
-failedsamples = prune_taxa(taxa_sums(failedsamples) > 0, failedsamples)
+
+fs_mask = sample_sums(ps) < omit_cutoff
+
+if (sum(fs_mask) > 0){
+  failedsamples = prune_samples(, ps)
+  failedsamples = prune_taxa(taxa_sums(failedsamples) > 0, failedsamples)
+  failedsamples
+} else {
+  
+  message("No 'failed samples' as per definition!")
+}
+
 ```
 
 
-```{r failed-samples-view, fig.width=15, fig.height=8}
+```{r failed-samples-view, fig.width=15, fig.height=8, eval=(sum(fs_mask) > 0)}
 make.taxa_barplot(failedsamples, taxa_rank = "species", taxa_excl = NA) + ggtitle(paste0('Samples with < ', omit_cutoff, ' (1% of median) reads'))
 ```
 
@@ -489,7 +499,15 @@ qcplot.plate_heatmap_toptaxa(ps, omit_cutoff = 100)
 
 ```{r sample_ps, echo=F}
 ### Inspect Samples ###
-ps_samples = subset_samples(ps, ANALYSE_TYPE_CODE=="999")
+if ("999" %in% sample_data(ps)$ANALYSE_TYPE_CODE){
+  ps_samples = subset_samples(ps, ANALYSE_TYPE_CODE=="999")
+} else {
+  message("No 'real' eDNA samples detected, using all data as 'experiment' data")
+  table(sample_data(ps)$ANALYSE_TYPE_CODE)
+  table(sample_data(ps)$ANALYSE_TYPE)
+  ps_samples = ps
+}
+
 ```
 
 
@@ -784,13 +802,13 @@ Use the following links/paths:
 
 NOTE: you can replace PATHS with the URL of files on the GDRIVE!
 
-`params$SAMPLE_SHEET_URL` = `r params$SAMPLE_SHEET_URL`
+`params$SAMPLE_SHEET_URL` = "`r params$SAMPLE_SHEET_URL`"
 
-`params$OTU_PATH` = `r params$OTU_PATH`
+`params$OTU_PATH` = "`r params$OTU_PATH`"
 
-`params$TAX_PATH` = `r params$TAX_PATH`
+`params$TAX_PATH` = "`r params$TAX_PATH`"
 
-`params$FASTA_PATH` = `r params$FASTA_PATH`
+`params$FASTA_PATH` = "`r params$FASTA_PATH`"
 
 Examples to load in data (see also INPUT segment of this report):
 
