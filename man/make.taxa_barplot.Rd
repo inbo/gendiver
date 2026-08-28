@@ -22,7 +22,7 @@ make.taxa_barplot(
 
 \item{taxa_excl}{String to select the taxonomies to exclude from the data before plotting. Same logic applies as for taxa_select. (Default 'Homo')}
 
-\item{cutoff}{integer, remove taxa that have less than n percent reads in the dataset.}
+\item{cutoff}{numeric, remove taxa that have less than n percent reads in the dataset.}
 
 \item{RRA}{Convert reads to relative read abundance (RRA) per sample. (Default FALSE)}
 }
