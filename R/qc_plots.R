@@ -213,7 +213,7 @@ qcplot.plate_heatmap_toptaxa = function(ps_obj, omit_cutoff = 100){
 #' Example: PAC bleed-over analysis -> input phyloseq is of all exotic ASVs over all samples.
 #'
 #' @param ps_obj Phyloseq object as INPUT
-#' @param omit_cutoff integer, omit samples with less than n reads (default=100). This is important for color gradient to make sense.
+#' @param min_reads integer, omit samples with less than n reads (default=1). This is important for color gradient to make sense.
 #' @param transform (default="identity") See \link[ggplot2]{scale_continuous}, e.g. "log2", "log10", "sqrt", ...
 #' @param mark_controls (default=FALSE) Mark tiles based on ANALYSE_TYPE. Only non MB data.
 #' @param mark_data (default=FALSE) Mark tiles based on ANALYSE_TYPE. All experiment/MB data.
@@ -225,38 +225,43 @@ qcplot.plate_heatmap_toptaxa = function(ps_obj, omit_cutoff = 100){
 #' @examples
 #' #To add
 qcplot.plate_heatmap_readcount = function(
-    ps_obj, omit_cutoff = 100, transform="identity",
+    ps_obj, min_reads = 1, transform="identity",
     mark_controls=FALSE, mark_data=FALSE, all_wells=FALSE){
   # plot top taxa over the plate layout
   sample_metadata = clean.ps_sample_sheet(ps_obj)
 
-  tot_count = data.frame("total_reads" = phyloseq::sample_sums(ps_obj))
+  tot_count = data.frame("total_value" = phyloseq::sample_sums(ps_obj))
 
   xx_p = merge(sample_metadata, tot_count, by=0,all.x = T)
 
 
   if (all_wells){
-    xx_p$total_reads[xx_p$total_reads < omit_cutoff] = NA
+    xx_p$total_value[xx_p$total_value < min_reads] = NA
+
   } else {
-    xx_p = xx_p[xx_p$total_reads >= omit_cutoff,]
+    # xx_p = xx_p[xx_p$total_value >= min_reads,]
+    xx_p$total_value[xx_p$total_value < min_reads] = NA
+    xx_p$ANALYSE_TYPE[is.na(xx_p$total_value)] =  NA
+    xx_p$ANALYSE_TYPE_CODE[is.na(xx_p$total_value)] =  NA
+
   }
   # Check if there is data remaining
   if (nrow(xx_p) == 0){
-    errorCondition("No data. Try lowering the omit_cutoff, or check your input object.")
+    errorCondition("No data. Try lowering the min_reads, or check your input object.")
     return()
   }
 
   plate_layout_plot = ggplot2::ggplot(
     data=xx_p,
-    ggplot2::aes(x = .data$WELL_COLUMN, y=.data$WELL_ROW, fill=.data$total_reads)) +
+    ggplot2::aes(x = .data$WELL_COLUMN, y=.data$WELL_ROW, fill=.data$total_value)) +
     ggplot2::geom_tile() +
     ggplot2::facet_wrap(~.data$PLATE_NOTES, ncol = 3) +
-    ggplot2::scale_fill_gradient(high="black", low="white", transform=transform, na.value = "white") +
+    ggplot2::scale_fill_gradient(high="black", low="snow2",limits = c(0, NA), transform=transform, na.value = "white") +
     ggplot2::theme_classic() +
     ggplot2::scale_y_discrete(limits = rev(levels(sample_metadata$WELL_ROW))) +
     ggplot2::scale_x_discrete(limits = levels(sample_metadata$WELL_COLUMN)) +
     ggplot2::ggtitle(paste0("Number of reads (",transform,") per well"),
-            subtitle = paste0("Colors correspond total read number (",transform,"). Samples with < ", omit_cutoff, " reads are omitted")
+            subtitle = paste0("Colors scale with data value (",transform,"). Wells with < ", min_reads, " are omitted")
     )
 
 
@@ -266,9 +271,9 @@ qcplot.plate_heatmap_readcount = function(
   if (mark_data){
     plate_layout_plot = plate_layout_plot +
       ggplot2::geom_tile(
-        data=xx_p[xx_p$ANALYSE_TYPE_CODE == "999",],
+        data=xx_p[match(xx_p$ANALYSE_TYPE_CODE, "999", nomatch = 0L) != 0L,],
         ggplot2::aes(x = .data$WELL_COLUMN, y=.data$WELL_ROW, color=.data$ANALYSE_TYPE),
-        fill=NA, size=0.5) +
+        fill=NA, linewidth=0.5) +
       ggplot2::scale_color_manual(values = mark_pal)
     }
 
@@ -276,12 +281,12 @@ qcplot.plate_heatmap_readcount = function(
     suppressMessages({
       plate_layout_plot = plate_layout_plot +
         ggplot2::geom_tile(
-          data=xx_p[xx_p$ANALYSE_TYPE_CODE != "999",],
+          data=xx_p[match(xx_p$ANALYSE_TYPE_CODE, c("999", NA), nomatch = 0L) == 0L,],
           ggplot2::aes(
             x = .data$WELL_COLUMN,
             y=.data$WELL_ROW,
             color=.data$ANALYSE_TYPE),
-          fill=NA, size=0.65) +
+          fill=NA, size=0.75) +
         ggplot2::scale_color_manual(values = mark_pal)
       }
       )

@@ -2,23 +2,24 @@
 ### Basic Analysis ###
 ######################
 
-#' General barplot function for taxa inspection
+
+#' Default cleanup for eDNA water
 #'
-#' Quickly visualize taxa groups in a barplot
+#' Clean data for analysis: select certain taxa, remove certain taxa, threshold the data and transform reads to RRA
 #'
-#' @param ps_obj Phyloseq object as INPUT
-#' @param taxa_rank Taxonomic rank to visualise the data on
-#' @param taxa_select String to select the data to plot based on taxonomy. Multiple taxonomies can be passed using "|". Taxonomies do not have to be of the same level, and are case insensitive. E.g. taxa_select='Amphibia|Homo sapiens`
-#' @param taxa_excl String to select the taxonomies to exclude from the data before plotting. Same logic applies as for taxa_select. (Default 'Homo')
-#' @param cutoff numeric, remove taxa that have less than n percent reads in the dataset.
-#' @param RRA Convert reads to relative read abundance (RRA) per sample. (Default FALSE)
+#' @param ps_obj Phyloseq object
+#' @param taxa_minR Minimun number of reads for a taxon to be retained (default=0)
+#' @param taxa_minP Minimun RRA for a taxon to be retained (default=0)
+#' @param taxa_select Select specific taxa, can be of any level. Can select multiple taxa with "taxA|taxB"
+#' @param taxa_excl Exclude certain taxa, can be of any level. Can exclude multiple taxa with "taxA|taxB". (default="Homo")
 #'
-#' @returns ggplot2 object
+#' @returns Phyloseq object
 #' @export
 #'
 #' @examples
 #' #To add
-make.taxa_barplot = function(ps_obj, taxa_rank="species", taxa_select=NA, taxa_excl="Homo", cutoff=1, RRA=FALSE){
+clean.default = function(ps_obj, taxa_minR=0, taxa_minP=0, taxa_select=NA, taxa_excl="Homo"){
+
   # Collapse taxonomy to 1 string
   tax_tab_obj = apply(data.frame(phyloseq::tax_table(ps_obj)),  1, paste0, collapse="")
 
@@ -34,10 +35,58 @@ make.taxa_barplot = function(ps_obj, taxa_rank="species", taxa_select=NA, taxa_e
     ps_obj = phyloseq::prune_taxa(names(excl_mask), ps_obj)
   }
 
-  # Filter low read taxa
-  cutoff_mask = rowSums(phyloseq::otu_table(ps_obj)) / sum(rowSums(phyloseq::otu_table(ps_obj))) * 100 > cutoff
+  otu_df = phyloseq::otu_table(ps_obj)
+
+  # Remove per sample singletons, or other minR cutoff
+  otu_df[otu_df < taxa_minR] = 0
+
+  otu_df = otu_df[, colSums(otu_df) > 0]
+  otu_df = otu_df[rowSums(otu_df) > 0, ]
+
+  ## Convert to RRA
+  otu_rra = vegan::decostand(otu_df, method = "total", MARGIN = 2, na.rm = T)
+
+  otu_rra[otu_rra < taxa_minP] = 0
+
+  otu_rra = vegan::decostand(otu_rra, method = "total", MARGIN = 2, na.rm = T)
+
+  phyloseq::otu_table(ps_obj) = phyloseq::otu_table(otu_rra, T)
+  ps_obj = phyloseq::prune_taxa(phyloseq::taxa_sums(ps_obj) > 0, ps_obj)
+  ps_obj = phyloseq::prune_samples(phyloseq::sample_sums(ps_obj) > 0, ps_obj)
+
+
+
+  return(ps_obj)
+
+}
+
+
+
+#' General barplot function for taxa inspection
+#'
+#' Quickly visualize taxa groups in a barplot
+#'
+#' @param ps_obj Phyloseq object as INPUT
+#' @param taxa_rank Taxonomic rank to visualise the data on
+#' @param taxa_select String to select the data to plot based on taxonomy. Multiple taxonomies can be passed using "|". Taxonomies do not have to be of the same level, and are case insensitive. E.g. taxa_select='Amphibia|Homo sapiens`
+#' @param taxa_excl String to select the taxonomies to exclude from the data before plotting. Same logic applies as for taxa_select. (Default 'Homo')
+#' @param min_percent numeric, remove taxa that have less than n percent reads in the dataset.
+#' @param RRA Convert reads to relative read abundance (RRA) per sample. (Default FALSE)
+#'
+#' @returns ggplot2 object
+#' @export
+#'
+#' @examples
+#' #To add
+make.taxa_barplot = function(
+    ps_obj, taxa_rank="species",
+    min_percent_total=0, RRA=FALSE){
+
+
+  # Filter low read taxa - total dataset
+  cutoff_mask = rowSums(phyloseq::otu_table(ps_obj)) / sum(rowSums(phyloseq::otu_table(ps_obj))) * 100 > min_percent_total
   if (sum(cutoff_mask) == 0){
-    message(paste0("No more data after applying taxa cutoff: ", cutoff, "%"))
+    message(paste0("No more data after applying taxa cutoff: ", min_percent, "%"))
     return(ggplot2::ggplot())
   }
   ps_obj = phyloseq::prune_taxa(cutoff_mask, ps_obj)
@@ -96,7 +145,7 @@ make.default_project_barplots = function(ps_obj, RRA=F, out_path=NA){
     cutoff_pct = 0
     title_text1 = paste0(sub_project_i, "_overview")
     pl1 = make.taxa_barplot(
-      sub_ps, taxa_rank = "custom_taxon", taxa_excl =NA, RRA = RRA, cutoff = cutoff_pct) +
+      sub_ps, taxa_rank = "custom_taxon", taxa_excl =NA, RRA = RRA, min_percent = cutoff_pct) +
       ggplot2::ggtitle(title_text1)
 
     # Make Fish/amphibian barplot
@@ -104,7 +153,7 @@ make.default_project_barplots = function(ps_obj, RRA=F, out_path=NA){
     title_text2 = paste0(sub_project_i, "_amphibia_fish", "_cutoff_", cutoff_pct, "_percent")
     pl2 = make.taxa_barplot(
       sub_ps, taxa_rank = "species", taxa_select = 'Actinopteri|Amphibia',
-      RRA = RRA, cutoff = cutoff_pct) +
+      RRA = RRA, min_percent = cutoff_pct) +
       ggplot2::ggtitle(title_text2)
 
     # Make most abundant barplot
@@ -112,7 +161,7 @@ make.default_project_barplots = function(ps_obj, RRA=F, out_path=NA){
     title_text3 = paste0(sub_project_i, "_species_no_human", "_cutoff_", cutoff_pct, "_percent")
     pl3 = make.taxa_barplot(
       sub_ps, taxa_rank = "species", taxa_select = NA, RRA = RRA,
-      cutoff = cutoff_pct) +
+      min_percent = cutoff_pct) +
       ggplot2::ggtitle(title_text3)
 
     # funky project names don't go well with writing filenames

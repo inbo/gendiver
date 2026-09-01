@@ -7,9 +7,7 @@
 make.taxa_barplot(
   ps_obj,
   taxa_rank = "species",
-  taxa_select = NA,
-  taxa_excl = "Homo",
-  cutoff = 1,
+  min_percent_total = 0,
   RRA = FALSE
 )
 }
@@ -18,13 +16,13 @@ make.taxa_barplot(
 
 \item{taxa_rank}{Taxonomic rank to visualise the data on}
 
+\item{RRA}{Convert reads to relative read abundance (RRA) per sample. (Default FALSE)}
+
 \item{taxa_select}{String to select the data to plot based on taxonomy. Multiple taxonomies can be passed using "|". Taxonomies do not have to be of the same level, and are case insensitive. E.g. taxa_select='Amphibia|Homo sapiens`}
 
 \item{taxa_excl}{String to select the taxonomies to exclude from the data before plotting. Same logic applies as for taxa_select. (Default 'Homo')}
 
-\item{cutoff}{numeric, remove taxa that have less than n percent reads in the dataset.}
-
-\item{RRA}{Convert reads to relative read abundance (RRA) per sample. (Default FALSE)}
+\item{min_percent}{numeric, remove taxa that have less than n percent reads in the dataset.}
 }
 \value{
 ggplot2 object
