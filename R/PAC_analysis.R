@@ -1,5 +1,5 @@
 
-pac26005.filters = function(){
+pac26005.filters = function(add_extra=F){
   PAC_list = list()
 
   # Asia
@@ -9,6 +9,13 @@ pac26005.filters = function(){
     "Trichopodus leerii",
     "Microdevario kubotai",
     "Pethia padamya")
+
+  # ZM 1
+  PAC_list$E2025STF185 = c(
+    "Hyphessobrycon amandae",
+    "Nannostomus beckfordi",
+    "Gymnocorymbus ternetzi",
+    "Jordanella floridae")
 
   # ZM2
   PAC_list$E2025STF1368 = c(
@@ -22,22 +29,18 @@ pac26005.filters = function(){
 
   # Malawi
   PAC_list$E2025STF196 = c(
-    "Aulonocara stuartgranti")
+    "Aulonocara stuartgranti",
+    "Cichlidae_unclassified")
 
-  # ZM 1
-  PAC_list$E2025STF185 = c(
-    "Hyphessobrycon amandae",
-    "Nannostomus beckfordi",
-    "Gymnocorymbus ternetzi",
-    "Jordanella floridae")
-
-  PAC_list$extra = c("Xiphophorus hellerii")
+  if (add_extra){
+    PAC_list$extra = c("Xiphophorus hellerii")
+  }
 
   return(PAC_list)
 }
 
 
-pac26005.colors = function(){
+pac26005.colors = function(add_extra=F){
   # fixed colors
   mypals = list()
 
@@ -54,6 +57,11 @@ pac26005.colors = function(){
 
   # Malawi
   mypals$species["Aulonocara stuartgranti"] = "lightblue1"
+  mypals$species["Cichlidae_unclassified"] = "lightblue3"
+
+  # Tanganyika
+  mypals$species["Julidochromis_unclassified"] = "blue2"
+  mypals$species["Neolamprologus brevis"] = "blue4"
 
   # Azie
   mypals$species["Helostoma temminkii"] = "salmon3"
@@ -62,12 +70,29 @@ pac26005.colors = function(){
   mypals$species["Tanichthys albonubes"] = "red"
   mypals$species["Trichopodus leerii"] = "red4"
 
-  # Tanganyika
-  mypals$species["Julidochromis_unclassified"] = "blue2"
-  mypals$species["Neolamprologus brevis"] = "blue4"
 
-  mypals$species
+  # EXTRA
+  if (add_extra){
+    mypals$species["Xiphophorus hellerii"] = "purple"
+  }
+
 
   return(mypals$species)
 }
 
+
+pac26005.palette = function(x, add_extra=F){
+  # init list
+  pacpal = list()
+  pacpal[x] = NA
+  # add PAC harcoded colors
+  palcols = pac26005.colors(add_extra)
+  pacpal[names(palcols)] = palcols
+  # add greys for non-PAC hardcoded
+  extra_sp = names(pacpal[is.na(pacpal)])
+  pacpal = pacpal[c(names(palcols), extra_sp[order(extra_sp)])]
+
+  pacpal[is.na(pacpal)] = colorspace::sequential_hcl(sum(is.na(pacpal)), palette = "Light Grays")
+
+  return(pacpal)
+}
