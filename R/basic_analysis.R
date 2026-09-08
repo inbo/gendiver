@@ -79,9 +79,7 @@ ps.clean_basic = function(ps_obj, RRA=T, taxa_minRS=0, taxa_minPS=0,
 #'
 #' @param ps_obj Phyloseq object as INPUT
 #' @param taxa_rank Taxonomic rank to visualise the data on
-#' @param taxa_select String to select the data to plot based on taxonomy. Multiple taxonomies can be passed using "|". Taxonomies do not have to be of the same level, and are case insensitive. E.g. taxa_select='Amphibia|Homo sapiens`
-#' @param taxa_excl String to select the taxonomies to exclude from the data before plotting. Same logic applies as for taxa_select. (Default 'Homo')
-#' @param min_percent numeric, remove taxa that have less than n percent reads in the dataset.
+#' @param min_percent_total numeric, remove taxa that have less than n percent reads in the dataset.
 #' @param RRA Convert reads to relative read abundance (RRA) per sample. (Default FALSE)
 #'
 #' @returns ggplot2 object
@@ -96,7 +94,7 @@ make.taxa_barplot = function(
   # Filter low read taxa - total dataset
   cutoff_mask = rowSums(phyloseq::otu_table(ps_obj)) / sum(rowSums(phyloseq::otu_table(ps_obj))) * 100 > min_percent_total
   if (sum(cutoff_mask) == 0){
-    message(paste0("No more data after applying taxa cutoff: ", min_percent, "%"))
+    message(paste0("No more data after applying taxa cutoff: ", min_percent_total, "%"))
     return(ggplot2::ggplot())
   }
   ps_obj = phyloseq::prune_taxa(cutoff_mask, ps_obj)
@@ -122,7 +120,7 @@ make.taxa_barplot = function(
   # pl1 = phyloseq::plot_bar(ps_obj, fill = taxa_rank)
   pl1 = ggplot2::ggplot(data=phyloseq::psmelt(ps_obj)) +
     ggplot2::geom_col(
-      aes(x=.data$Sample,y=.data$Abundance, fill=.data[[taxa_rank]]))
+      ggplot2::aes(x=.data$Sample,y=.data$Abundance, fill=.data[[taxa_rank]]))
 
   # color="black"
 
@@ -157,26 +155,32 @@ make.default_project_barplots = function(ps_obj, RRA=F, out_path=NA){
     sub_ps = phyloseq::prune_samples(phyloseq::sample_data(ps_obj)$PROJECT==sub_project_i, ps_obj)
 
     # Make overview barplot
+    sub_ps_overview = gendiver::ps.clean_basic(sub_ps, RRA = F, taxa_excl = NA)
     cutoff_pct = 0
     title_text1 = paste0(sub_project_i, "_overview")
     pl1 = make.taxa_barplot(
-      sub_ps, taxa_rank = "custom_taxon", taxa_excl =NA, RRA = RRA, min_percent = cutoff_pct) +
+      sub_ps_overview, taxa_rank = "custom_taxon", RRA = RRA,
+      min_percent_total = cutoff_pct) +
       ggplot2::ggtitle(title_text1)
 
     # Make Fish/amphibian barplot
+    sub_ps_fa = gendiver::ps.clean_basic(sub_ps, taxa_select = "Actinopteri|Amphibia", RRA = F)
+
     cutoff_pct = 0.1
     title_text2 = paste0(sub_project_i, "_amphibia_fish", "_cutoff_", cutoff_pct, "_percent")
     pl2 = make.taxa_barplot(
-      sub_ps, taxa_rank = "species", taxa_select = 'Actinopteri|Amphibia',
-      RRA = RRA, min_percent = cutoff_pct) +
+      sub_ps_fa, taxa_rank = "species",
+      RRA = RRA, min_percent_total = cutoff_pct) +
       ggplot2::ggtitle(title_text2)
 
     # Make most abundant barplot
+    sub_ps_overview2 = gendiver::ps.clean_basic(sub_ps, RRA = F)
+
     cutoff_pct = 2
     title_text3 = paste0(sub_project_i, "_species_no_human", "_cutoff_", cutoff_pct, "_percent")
     pl3 = make.taxa_barplot(
-      sub_ps, taxa_rank = "species", taxa_select = NA, RRA = RRA,
-      min_percent = cutoff_pct) +
+      sub_ps_overview2, taxa_rank = "species", RRA = RRA,
+      min_percent_total = cutoff_pct) +
       ggplot2::ggtitle(title_text3)
 
     # funky project names don't go well with writing filenames
