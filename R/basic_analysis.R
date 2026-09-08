@@ -2,23 +2,31 @@
 ### Basic Analysis ###
 ######################
 
-
-#' Default cleanup for eDNA water
+#' Basic cleanup for eDNA water samples
 #'
-#' Clean data for analysis: select certain taxa, remove certain taxa, threshold the data and transform reads to RRA
+#' Clean data for analysis: select and exclude taxa, threshold the data and transform reads to RRA. Global thresholds are applied before sample-specific thresholds. Taxa selection is applied before thresholding. RRA is performed as the final step. Thresholds are applied at the same time, with the most restrictive prevailing. Completely empty samples and/or taxa are always removed.
 #'
 #' @param ps_obj Phyloseq object
-#' @param taxa_minR Minimun number of reads for a taxon to be retained (default=0)
-#' @param taxa_minP Minimun RRA for a taxon to be retained (default=0)
+#' @param RRA Divide taxa values by sample total. In context of reads this results in Relative Read Abundances (RRA)
+#' @param taxa_minR Minimum number of reads for a taxon to be retained in the complete dataset (default=0). Note that 0 is a special case, as all data with 0 reads always gets removed, so this translates to > 0. For other values it translates as >= x. This also applies to other thresholding arguments.
+#' @param taxa_minP Minimum RRA for a taxon to be retained the complete dataset (default=0)
+#' @param taxa_minRS Minimum number of reads for a taxon to be retained in a sample (default=0)
+#' @param taxa_minPS Minimum RRA for a taxon to be retained in a sample (default=0)
 #' @param taxa_select Select specific taxa, can be of any level. Can select multiple taxa with "taxA|taxB"
 #' @param taxa_excl Exclude certain taxa, can be of any level. Can exclude multiple taxa with "taxA|taxB". (default="Homo")
+#' @param sample_minR Minimum number of reads for a sample to be retained (default=0)
 #'
 #' @returns Phyloseq object
 #' @export
 #'
 #' @examples
 #' #To add
-clean.default = function(ps_obj, taxa_minR=0, taxa_minP=0, taxa_select=NA, taxa_excl="Homo"){
+ps.clean_basic = function(ps_obj, RRA=T, taxa_minRS=0, taxa_minPS=0,
+                         taxa_minR=0, taxa_minP=0,
+                         taxa_select=NA, taxa_excl="Homo",
+                         sample_minR = 0){
+
+  ## 1. select taxa
 
   # Collapse taxonomy to 1 string
   tax_tab_obj = apply(data.frame(phyloseq::tax_table(ps_obj)),  1, paste0, collapse="")
@@ -35,26 +43,29 @@ clean.default = function(ps_obj, taxa_minR=0, taxa_minP=0, taxa_select=NA, taxa_
     ps_obj = phyloseq::prune_taxa(names(excl_mask), ps_obj)
   }
 
+  ## 2. Global thresholds
   otu_df = phyloseq::otu_table(ps_obj)
 
-  # Remove per sample singletons, or other minR cutoff
-  otu_df[otu_df < taxa_minR] = 0
+  # Sample reads/RRA threshold, + always remove empty dataslices
+  otu_df = otu_df[, colSums(otu_df) >= sample_minR & colSums(otu_df) != 0]
+  otu_df = otu_df[! rowSums(otu_df) < taxa_minR | rowSums(otu_df)/sum(otu_df) < taxa_minP | rowSums(otu_df) == 0, ]
 
-  otu_df = otu_df[, colSums(otu_df) > 0]
-  otu_df = otu_df[rowSums(otu_df) > 0, ]
-
-  ## Convert to RRA
+  ## 3. Per sample thresholds
+  ## make RRA
   otu_rra = vegan::decostand(otu_df, method = "total", MARGIN = 2, na.rm = T)
 
-  otu_rra[otu_rra < taxa_minP] = 0
+  # Remove per sample taxa
+  otu_df[otu_df < taxa_minRS | otu_rra < taxa_minPS] = 0
 
-  otu_rra = vegan::decostand(otu_rra, method = "total", MARGIN = 2, na.rm = T)
+  # remove any new full 0 data (samples/taxa)
+  otu_df = otu_df[rowSums(otu_df) > 0, colSums(otu_df) > 0]
 
-  phyloseq::otu_table(ps_obj) = phyloseq::otu_table(otu_rra, T)
-  ps_obj = phyloseq::prune_taxa(phyloseq::taxa_sums(ps_obj) > 0, ps_obj)
-  ps_obj = phyloseq::prune_samples(phyloseq::sample_sums(ps_obj) > 0, ps_obj)
+  if (RRA){
+    # Re-make RRA
+    otu_df = vegan::decostand(otu_df, method = "total", MARGIN = 2, na.rm = T)
+  }
 
-
+  phyloseq::otu_table(ps_obj) = phyloseq::otu_table(otu_df, T)
 
   return(ps_obj)
 
@@ -82,7 +93,6 @@ make.taxa_barplot = function(
     ps_obj, taxa_rank="species",
     min_percent_total=0, RRA=FALSE){
 
-
   # Filter low read taxa - total dataset
   cutoff_mask = rowSums(phyloseq::otu_table(ps_obj)) / sum(rowSums(phyloseq::otu_table(ps_obj))) * 100 > min_percent_total
   if (sum(cutoff_mask) == 0){
@@ -109,7 +119,12 @@ make.taxa_barplot = function(
   }
 
   # plot
-  pl1 = phyloseq::plot_bar(ps_obj, fill = taxa_rank)
+  # pl1 = phyloseq::plot_bar(ps_obj, fill = taxa_rank)
+  pl1 = ggplot2::ggplot(data=phyloseq::psmelt(ps_obj)) +
+    ggplot2::geom_col(
+      aes(x=.data$Sample,y=.data$Abundance, fill=.data[[taxa_rank]]))
+
+  # color="black"
 
   # Return
   return(pl1)
@@ -207,7 +222,8 @@ make.default_project_barplots = function(ps_obj, RRA=F, out_path=NA){
 }
 
 
-combine.obi_otu_tax = function(otu_df, tax_df){
+# helper to merge otu table and tax table
+data.merge_obi_otu_tax = function(otu_df, tax_df){
   res_table = merge(tax_df, otu_df, by="row.names")
   colnames(res_table)[1] = "ID"
   rownames(res_table) = res_table$ID
@@ -218,11 +234,21 @@ combine.obi_otu_tax = function(otu_df, tax_df){
   return(table_sorted)
 }
 
-
-combine.ps_otu_tax = function(ps){
+#' Extract OTU table and taxonomy table from phyloseq object
+#'
+#' Extract OTU and taxonomy data from phyloseq object.
+#'
+#' @param ps Phyloseq object
+#'
+#' @returns Data frame
+#' @export
+#'
+#' @examples
+#' #To add
+ps.get_otu_tax = function(ps){
   t_out <- merge(
     as.data.frame(phyloseq::tax_table(ps)),
-    as.data.frame(phyloseq::otu_table(ps)), by="row.names")
+    as.data.frame(phyloseq::otu_table(ps, taxa_are_rows = T)), by="row.names")
   row.names(t_out) = t_out$Row.names
   t_out = t_out[, -1]
   return(t_out)
@@ -253,7 +279,7 @@ export.data_sets = function(
   ### PREPARE DATA ###
   PRJ_DIR = out_path
   # Merge and sort all otu+tax data
-  table_sorted = combine.obi_otu_tax(otu_df, tax_df)
+  table_sorted = data.merge_obi_otu_tax(otu_df, tax_df)
 
   # remove sequences that have a database match with less than "cutoff" identity with a database sequence
   unknowns = table_sorted[table_sorted$BEST_IDENTITY < ID_cutoff,]
@@ -279,14 +305,14 @@ export.data_sets = function(
 
   # Make RRA version
   ps.RRA = phyloseq::transform_sample_counts(myps, function(OTU) OTU/sum(OTU)*100)
-  table.filt.RRA = combine.ps_otu_tax(ps.RRA)[row.names(table.filt),]
+  table.filt.RRA = ps.get_otu_tax(ps.RRA)[row.names(table.filt),]
 
   # Tax glom
   ps.filt.taxglom <- phyloseq::tax_glom(myps, taxrank="species")
-  table.filt.taxglom = combine.ps_otu_tax(ps.filt.taxglom)
+  table.filt.taxglom = ps.get_otu_tax(ps.filt.taxglom)
 
   ps.filt.taxglom.frac <- phyloseq::transform_sample_counts(ps.filt.taxglom, function(OTU) OTU/sum(OTU)*100)
-  table.filt.taxglom.RRA = combine.ps_otu_tax(ps.filt.taxglom.frac)
+  table.filt.taxglom.RRA = ps.get_otu_tax(ps.filt.taxglom.frac)
 
   ### WRITE DATA ###
   #save sorted table to output txt file
@@ -402,7 +428,7 @@ data.merge_replicates = function(otu_df, tax_df, sample_sheet_df, merge_col="IND
 #' #To add
 ps.merge_replicates = function(ps_obj){
   x = data.merge_replicates(
-    otu_df = phyloseq::otu_table(ps_obj),
+    otu_df = phyloseq::otu_table(ps_obj, taxa_are_rows = T),
     tax_df = data.frame(phyloseq::tax_table(ps_obj)),
     sample_sheet_df = data.frame(phyloseq::sample_data(ps_obj))
   )

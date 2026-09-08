@@ -6,7 +6,7 @@
 \usage{
 qcplot.plate_heatmap_readcount(
   ps_obj,
-  min_reads = 1,
+  cutoff = 0,
   transform = "identity",
   mark_controls = FALSE,
   mark_data = FALSE,
@@ -16,7 +16,7 @@ qcplot.plate_heatmap_readcount(
 \arguments{
 \item{ps_obj}{Phyloseq object as INPUT}
 
-\item{min_reads}{integer, omit samples with less than n reads (default=1). This is important for color gradient to make sense.}
+\item{cutoff}{numeric, omit samples with a value of n or lower (default=0, so more than 0).}
 
 \item{transform}{(default="identity") See \link[ggplot2]{scale_continuous}, e.g. "log2", "log10", "sqrt", ...}
 

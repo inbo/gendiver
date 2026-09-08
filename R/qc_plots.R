@@ -2,7 +2,7 @@
 ### QC Plots ###
 ################
 
-clean.ps_sample_sheet = function(ps_obj){
+ps.clean_sample_sheet = function(ps_obj){
   sample_metadata = as.data.frame(phyloseq::sample_data(ps_obj))
   sample_metadata$PLATE = factor(gsub("R.*$", "", sample_metadata$PLATE_NOTES))
   sample_metadata$PLATE_REPLICATE = factor(paste0("R",gsub("^.*R", "", sample_metadata$PLATE_NOTES)))
@@ -36,7 +36,7 @@ clean.ps_sample_sheet = function(ps_obj){
 #' @examples
 #' #To add
 qcplot.plate_column_asv_barplot = function(ps_plate, topX=25){
-  phyloseq::sample_data(ps_plate) = clean.ps_sample_sheet(ps_plate)
+  phyloseq::sample_data(ps_plate) = ps.clean_sample_sheet(ps_plate)
   out_list = c()
   # Create sample column to merge on
   phyloseq::sample_data(ps_plate)$X = paste(
@@ -110,7 +110,7 @@ qcplot.plate_column_asv_barplot = function(ps_plate, topX=25){
 #' #To add
 qcplot.plate_column_asv_analysis = function(ps_obj, topX=25, out_path=NA){
 
-  sample_metadata = clean.ps_sample_sheet(ps_obj)
+  sample_metadata = ps.clean_sample_sheet(ps_obj)
   platesx = sample_metadata$PLATE
   pl_list = list()
 
@@ -165,7 +165,7 @@ qcplot.plate_column_asv_analysis = function(ps_obj, topX=25, out_path=NA){
 #' #To add
 qcplot.plate_heatmap_toptaxa = function(ps_obj, omit_cutoff = 100){
   # plot top taxa over the plate layout
-  sample_metadata = clean.ps_sample_sheet(ps_obj)
+  sample_metadata = ps.clean_sample_sheet(ps_obj)
 
   taxa_df = phyloseq::otu_table(ps_obj)
   # Collect data on top ASV of ps_obj
@@ -213,7 +213,7 @@ qcplot.plate_heatmap_toptaxa = function(ps_obj, omit_cutoff = 100){
 #' Example: PAC bleed-over analysis -> input phyloseq is of all exotic ASVs over all samples.
 #'
 #' @param ps_obj Phyloseq object as INPUT
-#' @param min_reads integer, omit samples with less than n reads (default=1). This is important for color gradient to make sense.
+#' @param cutoff numeric, omit samples with a value of n or lower (default=0, so more than 0).
 #' @param transform (default="identity") See \link[ggplot2]{scale_continuous}, e.g. "log2", "log10", "sqrt", ...
 #' @param mark_controls (default=FALSE) Mark tiles based on ANALYSE_TYPE. Only non MB data.
 #' @param mark_data (default=FALSE) Mark tiles based on ANALYSE_TYPE. All experiment/MB data.
@@ -225,10 +225,10 @@ qcplot.plate_heatmap_toptaxa = function(ps_obj, omit_cutoff = 100){
 #' @examples
 #' #To add
 qcplot.plate_heatmap_readcount = function(
-    ps_obj, min_reads = 1, transform="identity",
+    ps_obj, cutoff = 0, transform="identity",
     mark_controls=FALSE, mark_data=FALSE, all_wells=FALSE){
   # plot top taxa over the plate layout
-  sample_metadata = clean.ps_sample_sheet(ps_obj)
+  sample_metadata = ps.clean_sample_sheet(ps_obj)
 
   tot_count = data.frame("total_value" = phyloseq::sample_sums(ps_obj))
 
@@ -236,18 +236,18 @@ qcplot.plate_heatmap_readcount = function(
 
 
   if (all_wells){
-    xx_p$total_value[xx_p$total_value < min_reads] = NA
+    xx_p$total_value[xx_p$total_value <= cutoff] = NA
 
   } else {
-    # xx_p = xx_p[xx_p$total_value >= min_reads,]
-    xx_p$total_value[xx_p$total_value < min_reads] = NA
+    # xx_p = xx_p[xx_p$total_value >= cutoff,]
+    xx_p$total_value[xx_p$total_value <= cutoff] = NA
     xx_p$ANALYSE_TYPE[is.na(xx_p$total_value)] =  NA
     xx_p$ANALYSE_TYPE_CODE[is.na(xx_p$total_value)] =  NA
 
   }
   # Check if there is data remaining
   if (nrow(xx_p) == 0){
-    errorCondition("No data. Try lowering the min_reads, or check your input object.")
+    errorCondition("No data. Try lowering the cutoff, or check your input object.")
     return()
   }
 
@@ -261,7 +261,7 @@ qcplot.plate_heatmap_readcount = function(
     ggplot2::scale_y_discrete(limits = rev(levels(sample_metadata$WELL_ROW))) +
     ggplot2::scale_x_discrete(limits = levels(sample_metadata$WELL_COLUMN)) +
     ggplot2::ggtitle(paste0("Number of reads (",transform,") per well"),
-            subtitle = paste0("Colors scale with data value (",transform,"). Wells with < ", min_reads, " are omitted")
+            subtitle = paste0("Colors scale with data value (",transform,"). Only wells with > ", cutoff, " are included.")
     )
 
 
