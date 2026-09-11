@@ -1,3 +1,4 @@
+# to be exported?
 
 pac26005.filters = function(add_extra=F){
   PAC_list = list()
@@ -30,10 +31,14 @@ pac26005.filters = function(add_extra=F){
   # Malawi
   PAC_list$E2025STF196 = c(
     "Aulonocara stuartgranti",
-    "Cichlidae_unclassified")
+    "Cichlidae_unclassified",
+    "Copadichromis trimaculatus")
 
   if (add_extra){
-    PAC_list$extra = c("Xiphophorus hellerii")
+    PAC_list$extra = c(
+      "Xiphophorus hellerii",
+      "Xiphophorus maculatus")
+
   }
 
   return(PAC_list)
@@ -57,7 +62,10 @@ pac26005.colors = function(add_extra=F){
 
   # Malawi
   mypals$species["Aulonocara stuartgranti"] = "lightblue1"
+  ## Riaz
   mypals$species["Cichlidae_unclassified"] = "lightblue3"
+  ## Teleo
+  mypals$species["Copadichromis trimaculatus"] = "lightblue3"
 
   # Tanganyika
   mypals$species["Julidochromis_unclassified"] = "blue2"
@@ -74,6 +82,7 @@ pac26005.colors = function(add_extra=F){
   # EXTRA
   if (add_extra){
     mypals$species["Xiphophorus hellerii"] = "purple"
+    mypals$species["Xiphophorus maculatus"] = "purple3"
   }
 
 
