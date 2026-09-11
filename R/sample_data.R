@@ -10,6 +10,23 @@ clean_colnames = function(x){
   return(xout)
 }
 
+
+get.sample_sheet_urls = function(){
+  LST002 = googlesheets4::read_sheet("https://docs.google.com/spreadsheets/d/1h70fKsQCqPQS5tSQYOwws2zeCJJu9BOlH7mI0xUg5rA/edit?gid=1637141996#gid=1637141996")
+
+  out = list()
+  out[as.character(LST002$`Run name`)] = LST002$sample_gsheet_url
+
+  # custom additions
+  out$`25004` = list(
+    "insekp" = "https://docs.google.com/spreadsheets/d/1SxZwDzzA7mcSlpO5YDMXcZKpUCtxO_c56bNyGxktwE0/edit?usp=drive_link",
+    "riaz_teleo" = "https://docs.google.com/spreadsheets/d/1Zlge3srOWzk4jnR5XCJjbOkrmIPPrhMA8y2jsq0-Vfc/edit?usp=drive_link")
+
+  return(out)
+  }
+
+
+
 #' Read lab-sample-sheet
 #'
 #' All purpose starting point for reading the lab sample_sheet.
