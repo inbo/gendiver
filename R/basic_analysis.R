@@ -232,7 +232,7 @@ data.merge_obi_otu_tax = function(otu_df, tax_df){
   colnames(res_table)[1] = "ID"
   rownames(res_table) = res_table$ID
 
-  res_table$COUNT = rowSums(otu_df)
+  res_table[row.names(otu_df), 'COUNT'] = rowSums(otu_df)
 
   table_sorted <- res_table[order(res_table$COUNT, decreasing = T),] #sort from largest to smallest number of total counts per ASV
   return(table_sorted)
@@ -381,15 +381,22 @@ export.data_sets = function(
 #' @param tax_df Data frame with taxonomic annotation data
 #' @param sample_sheet_df Data frame of (lab) sample sheet
 #' @param merge_col Column name of `sample_sheet_df` to merge on. (default="INDIVIDUAL")
+#' @param min_rprev Optional filter to exclude taxa that occur in less than n replicates. Default=1 (keep all taxa)
 #'
 #' @returns phyloseq object
 #' @export
 #'
 #' @examples
 #' #To add
-data.merge_replicates = function(otu_df, tax_df, sample_sheet_df, merge_col="INDIVIDUAL"){
+data.merge_replicates = function(otu_df, tax_df, sample_sheet_df, merge_col="INDIVIDUAL", min_rprev=1){
 
-  ## First RRA
+  ## Select taxa based on replicate prevalence
+  otu_prev = vegan::decostand(otu_df, method = "pa", MARGIN = 2, na.rm = T)
+
+  x1 = merge(sample_sheet_df[, merge_col, drop=F], t(otu_prev), by=0)[-1]
+  x1 <- aggregate(x1[-1], by = list(x1[[merge_col]]), FUN = sum)
+
+  ## RRA
   otu_rra = vegan::decostand(otu_df, method = "total", MARGIN = 2, na.rm = T)
 
   ## Then, merge replicate per filter - mean()
@@ -400,6 +407,9 @@ data.merge_replicates = function(otu_df, tax_df, sample_sheet_df, merge_col="IND
   x[[merge_col]] = NULL
 
   x = stats::aggregate(x=x[-1], by=list(x[[1]]), mean)
+
+  ## Apply minr_prev
+  x[x1 < min_rprev] = 0
 
   otu_rra_merged = data.frame(t(x[-1]))
   colnames(otu_rra_merged) = x[[1]]
@@ -424,17 +434,21 @@ data.merge_replicates = function(otu_df, tax_df, sample_sheet_df, merge_col="IND
 #' Merge the data from (generally 3) replicate amplicons into a single sample. Here, this is done by taking the average of each replicate's relative read abundance (RRA).
 #'
 #' @param ps_obj phyloseq object with sample_data() containing "INDIVIDUAL"
-#'
+#' @param min_rprev Optional filter to exclude taxa that occur in less than n replicates. Default=1 (keep all taxa)
+
 #' @returns phyloseq object
 #' @export
 #'
 #' @examples
 #' #To add
-ps.merge_replicates = function(ps_obj){
+ps.merge_replicates = function(ps_obj, min_rprev=1){
   x = data.merge_replicates(
     otu_df = phyloseq::otu_table(ps_obj, taxa_are_rows = T),
     tax_df = data.frame(phyloseq::tax_table(ps_obj)),
-    sample_sheet_df = data.frame(phyloseq::sample_data(ps_obj))
+    sample_sheet_df = data.frame(phyloseq::sample_data(ps_obj)),
+    min_rprev = min_rprev
   )
+
+  x = ps.clean_basic(x, taxa_excl = NA)
    return(x)
 }
