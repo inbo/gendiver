@@ -4,10 +4,12 @@
 \alias{ps.merge_replicates}
 \title{Merge technical replicates into samples}
 \usage{
-ps.merge_replicates(ps_obj)
+ps.merge_replicates(ps_obj, min_rprev = 1)
 }
 \arguments{
 \item{ps_obj}{phyloseq object with sample_data() containing "INDIVIDUAL"}
+
+\item{min_rprev}{Optional filter to exclude taxa that occur in less than n replicates. Default=1 (keep all taxa)}
 }
 \value{
 phyloseq object

@@ -8,7 +8,8 @@ data.merge_replicates(
   otu_df,
   tax_df,
   sample_sheet_df,
-  merge_col = "INDIVIDUAL"
+  merge_col = "INDIVIDUAL",
+  min_rprev = 1
 )
 }
 \arguments{
@@ -19,6 +20,8 @@ data.merge_replicates(
 \item{sample_sheet_df}{Data frame of (lab) sample sheet}
 
 \item{merge_col}{Column name of `sample_sheet_df` to merge on. (default="INDIVIDUAL")}
+
+\item{min_rprev}{Optional filter to exclude taxa that occur in less than n replicates. Default=1 (keep all taxa)}
 }
 \value{
 phyloseq object
