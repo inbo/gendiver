@@ -24,7 +24,8 @@ Imports:
     Biostrings,
     reshape2,
     vegan,
-    phyloseq
+    phyloseq,
+    colorspace
 Suggests: 
     testthat (>= 3.0.0),
     rmarkdown,
