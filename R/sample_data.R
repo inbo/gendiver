@@ -11,6 +11,15 @@ clean_colnames = function(x){
 }
 
 
+#' Get sample sheets URLs from LST002
+#'
+#' Read sample sheet URLs from \href{https://docs.google.com/spreadsheets/d/1h70fKsQCqPQS5tSQYOwws2zeCJJu9BOlH7mI0xUg5rA/edit?gid=1637141996#gid=1637141996}{LST002}
+#'
+#' @returns List with URLs
+#' @export
+#'
+#' @examples
+#' # todo
 get.sample_sheet_urls = function(){
   LST002 = googlesheets4::read_sheet("https://docs.google.com/spreadsheets/d/1h70fKsQCqPQS5tSQYOwws2zeCJJu9BOlH7mI0xUg5rA/edit?gid=1637141996#gid=1637141996")
 
