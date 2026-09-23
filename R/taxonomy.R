@@ -305,9 +305,9 @@ merger.taxonomy_usearch = function(usearch_blast6, usearch_lca) {
     usearch_lca = read.taxonomy_usearch_lca(usearch_lca)
   }
 
-  usearch_ID_agg = aggregate(data=usearch_blast6, ID ~ QUERY_LABEL, FUN = max )
-  usearch_target_IDs = aggregate(data=usearch_blast6, TARGET_LABEL ~ QUERY_LABEL, FUN = paste_string_listOBI )
-  usearch_target_species = aggregate(data=usearch_blast6, species ~ QUERY_LABEL, FUN = paste_string_list)
+  usearch_ID_agg = stats::aggregate(data=usearch_blast6, ID ~ QUERY_LABEL, FUN = max )
+  usearch_target_IDs = stats::aggregate(data=usearch_blast6, TARGET_LABEL ~ QUERY_LABEL, FUN = paste_string_listOBI )
+  usearch_target_species = stats::aggregate(data=usearch_blast6, species ~ QUERY_LABEL, FUN = paste_string_list)
   usearch_agg_info = cbind(usearch_ID_agg, usearch_target_species[-1], usearch_target_IDs[-1] )
   colnames(usearch_agg_info)= c("QUERY_LABEL", "ID", "TARGET_LABEL_species", "TARGET_LABEL")
 

@@ -6,16 +6,25 @@
 \usage{
 qcplot.plate_heatmap_readcount(
   ps_obj,
-  omit_cutoff = 100,
-  transform = "identity"
+  cutoff = 0,
+  transform = "identity",
+  mark_controls = FALSE,
+  mark_data = FALSE,
+  all_wells = FALSE
 )
 }
 \arguments{
 \item{ps_obj}{Phyloseq object as INPUT}
 
-\item{omit_cutoff}{integer, omit samples with less than n reads (default=100). This is important for color gradient to make sense.}
+\item{cutoff}{numeric, omit samples with a value of n or lower (default=0, so more than 0).}
 
 \item{transform}{(default="identity") See \link[ggplot2]{scale_continuous}, e.g. "log2", "log10", "sqrt", ...}
+
+\item{mark_controls}{(default=FALSE) Mark tiles based on ANALYSE_TYPE. Only non MB data.}
+
+\item{mark_data}{(default=FALSE) Mark tiles based on ANALYSE_TYPE. All experiment/MB data.}
+
+\item{all_wells}{(default=FALSE) Plot all wells, regardless if data is present or not. If turned off (`mark_all=FALSE`, default), only plot wells with data above the omit cutoff.}
 }
 \value{
 ggplot2::geom_tile()
