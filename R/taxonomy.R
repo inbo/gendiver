@@ -2,7 +2,6 @@
 # Taxonomy #
 ############
 
-
 #' Read OBITools3 ECOTAG taxonomy output into dataframe
 #'
 #' Reading and general cleaning/pruning of OBITOOLS3 ecotag output
@@ -158,7 +157,7 @@ parse.utax_string = function(x, is_pred=F){
     return(data.frame("species"=NA))
   }
   # split taxon-levels ,
-  xspl = unlist(strsplit(x, ",*[dpcofgst]:"))[-1]
+  xspl = unlist(strsplit(x, ",*[kdpcofgst]:"))[-1]
 
   # name to first letter
   names(xspl) = c("domain", "phylum", "class", "order", "family", "genus", "species", "strain")[1:length(xspl)]
