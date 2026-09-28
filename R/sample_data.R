@@ -92,7 +92,7 @@ read.sample_sheet_lab = function(sample_metadata_path){
 #' # googlesheets4::gs4_deauth()
 #' # my_sample_data_df = read.sample_sheet_lab("1cWkVqk3y7668OVRhIlpa0fUmTh4oJTRWUqp60GRJ5J8")
 #' # write.barcode_files(my_sample_data_df, out_dir=tempdir())
-write.barcode_files = function(lab_sample_sheet, out_dir, LIB_COL=1){
+write.barcode_files = function(lab_sample_sheet, out_dir, LIB_COL=1, nextits=FALSE){
 
   target_col = lab_sample_sheet[,c(LIB_COL)]
 
@@ -102,12 +102,25 @@ write.barcode_files = function(lab_sample_sheet, out_dir, LIB_COL=1){
 
     cat(paste0("\n",lib_code_i, ": ", nrow(lib_data), " samples"))
 
-    outtable = lib_data[, c("UNIQUE_SAMPLE_CODE",
-                            "SEQUENCE_BARCODE_F_PRIMER",
-                            "SEQUENCE_BARCODE_R_PRIMER")]
+    if (nextits){
+      # In NextITS, we use the SequencingRunID__SampleID naming convention (please note the double underscore separating RunID and SampleID parts)
+      # https://next-its.github.io/usage/#barcodes
+      out_data = paste0(
+        ">Run", lib_data$RUN_CODE,"", lib_data$LIBRARY_CODE, "__", lib_data$UNIQUE_SAMPLE_CODE, '\n',
+        lib_data$SEQUENCE_BARCODE_F_PRIMER, "...", lib_data$SEQUENCE_BARCODE_R_PRIMER )
+      fileConn<-file(file.path(out_dir, paste0(lib_code_i, ".fasta")))
+      writeLines(out_data, fileConn)
+      close(fileConn)
 
-    utils::write.table(outtable, file = file.path(out_dir, paste0(lib_code_i, ".tsv")),
-                sep="\t", quote = F, col.names = F, row.names = F, )
+    } else {
+      outtable = lib_data[, c("UNIQUE_SAMPLE_CODE",
+                              "SEQUENCE_BARCODE_F_PRIMER",
+                              "SEQUENCE_BARCODE_R_PRIMER")]
+      utils::write.table(outtable, file = file.path(out_dir, paste0(lib_code_i, ".tsv")),
+                         sep="\t", quote = F, col.names = F, row.names = F, )
+    }
+
 
   }
 }
+
