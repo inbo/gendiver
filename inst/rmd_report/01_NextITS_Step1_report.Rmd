@@ -53,7 +53,9 @@ PROJ_NAME = paste0(basename(dirname(data_dir)), ":", basename(data_dir))
 
 ```{r}
 limalog= file.path(data_dir, "01_Demux/LIMA/lima.lima.summary")
-if (file.exists(limalog)) cat(paste0(readLines(limalog), "\n"))
+if (file.exists(limalog)){
+  cat(paste0(readLines(limalog), "\n"))
+}
 ```
 
 ## NextITS Step1
@@ -73,6 +75,13 @@ prep.nextits_step1_runsum = function(N1_runsum){
 
 prepro_df = prep.nextits_step1_runsum(N1_runsum)
 
+```
+```{r fix.samplid, echo=F}
+# NextITS sample IDs might have RUN number separated by "__" from USI
+prepro_df$sample_id = sub(".*__", "", prepro_df$sample_id)
+
+# NextITS collapses any other "__", so also need to do this in sample data
+sample_sheet$UNIQUE_SAMPLE_CODE = gsub("__" , "_", sample_sheet$UNIQUE_SAMPLE_CODE)
 ```
 
 
@@ -256,12 +265,13 @@ sample_sheet$LABEL[sample_sheet$ANALYSE_TYPE_CODE == 999] = ""
 sample_sheet$WELL_COLUMN = as.factor(sample_sheet$WELL_COLUMN)
 mycols = length(unique(sample_sheet$PRIMERS))
 
-figh = length(unique(sample_sheet$PLATE_NOTES)) * 4
+# some extra for next chunk
+plh=max(5,length(unique(sample_sheet$PLATE_NOTES)) *1.5)
 ```
 
 - Map readcounts per WELL to **check overall read distribution**
 
-```{r plate-layout-ident, echo=F, fig.width=15, fig.height=figh, warning=FALSE}
+```{r plate-layout-ident, echo=F, fig.width=15, fig.height=plh, warning=FALSE}
 sample_sheet[is.na(sample_sheet)] = 0
 pl_p = ggplot2::ggplot( data=sample_sheet, ggplot2::aes(
   x = .data$WELL_COLUMN, y=.data$WELL_ROW, fill=.data$SAMPLE_TYPE, alpha=.data[[read_count.preprocess]], colour=.data$SAMPLE_TYPE)) +
@@ -280,7 +290,7 @@ pl_p
 - Map **log10** readcounts per WELL to **highlight samples/amplicons with low read-counts**
 
 
-```{r plate-layout-log, echo=F, fig.width=15, fig.height=figh, warning=FALSE}
+```{r plate-layout-log, echo=F, fig.width=15, fig.height=plh, warning=FALSE}
 
 pl_p + scale_alpha_continuous(transform="log10")
 
@@ -305,7 +315,8 @@ fH = max(4, max(type.tb[controls])*0.2)
 ```{r plot-c, fig.height=fH, fig.width=20, echo=F, results='asis'}
 
 for (typei in controls){
-  cdata_samples = sample_sheet[sample_sheet$ANALYSE_TYPE == typei, c(1, 44:47)]
+  rc_cols = grepl("read_count", colnames(sample_sheet))
+  cdata_samples = sample_sheet[sample_sheet$ANALYSE_TYPE == typei, c(TRUE, rc_cols[-1])]
   cdata = reshape2::melt(cdata_samples, id=1)
   colnames(cdata) = c("sample_id", "pipeline_step", "read_count")
   cdata$pipeline_step = gsub("read_count.","", cdata$pipeline_step)
