@@ -31,7 +31,13 @@ get.sample_sheet_urls = function(){
     "insekp" = "https://docs.google.com/spreadsheets/d/1SxZwDzzA7mcSlpO5YDMXcZKpUCtxO_c56bNyGxktwE0/edit?usp=drive_link",
     "riaz_teleo" = "https://docs.google.com/spreadsheets/d/1Zlge3srOWzk4jnR5XCJjbOkrmIPPrhMA8y2jsq0-Vfc/edit?usp=drive_link")
 
-  return(out)
+  # custom additions
+  out$`23005` = list(
+    "olig_coll" = "https://docs.google.com/spreadsheets/d/12cIhbTq-NDT4WFMYuqcAeTxJr5RgC5A5AX7TxYLysxU/edit?gid=2119359410#gid=2119359410",
+    "riaz" = "https://docs.google.com/spreadsheets/d/1hcgX9Iz4IpA2oCQtez6zby03k9CLDclZNjJknr6b-sE/edit?usp=drive_link")
+
+
+    return(out)
   }
 
 
@@ -74,6 +80,44 @@ read.sample_sheet_lab = function(sample_metadata_path){
 
   return(sample_metadata)
 }
+
+
+#' Convert lab-sample-sheet from pre 2024 analyses
+#'
+#' Change column names from "old" sample sheets to "new" format.
+#'
+#' @param sample_sheet_df Sample sheet data frame as per \link[gendiver]{read.sample_sheet_lab}
+#'
+#' @returns Sample sheet data frame with converted colnames/data
+#' @export
+#'
+#' @examples
+#' # example to be added
+convert.sample_sheet_pre2024 = function(sample_sheet_df){
+  ## Convert "Annelies" lab-sample-sheet format to new INBO format
+  # Assume sample sheets is the same format always.
+
+  colnames(sample_sheet_df) = c(
+     "MATRIX", "MATRIX_CODE", "PROJECT", NA,
+     "PROJECT_CODE", "EXTRACTION_DATE_YYMMDD", "EXTRACTION_DATE_CODE", "ANALYSE_TYPE", "ANALYSE_TYPE_CODE", "INDIVIDUAL", NA,
+     "INDIVIDUAL_CODE", "LIBRARY_TYPE", "LIBRARY_TYPE_REMARKS", NA,
+     "PROTOCOL_CODE", "TECHNICAL_REPLICATE" , "TECHNICAL_REPLICATE_CODE", "RUN", "SEQUENCING_PLATFORM", "RUN_CODE", "REMARKS", "UNIQUE_SAMPLE_CODE",
+     rep(NA, 8),  "BARCODE_F_PRIMER", "SEQUENCE_BARCODE_F_PRIMER", "BARCODE_R_PRIMER", "SEQUENCE_BARCODE_R_PRIMER",
+     rep(NA, 7), "PLATE_NOTES", "WELL",  "POOL_NAME_SEQ"
+  )
+
+  sample_sheet_df$ANALYSE_TYPE[sample_sheet_df$ANALYSE_TYPE_CODE == "999"] = "Metabarcoding"
+  sample_sheet_df$ANALYSE_TYPE[sample_sheet_df$ANALYSE_TYPE_CODE == "000"] = "NTC"
+  sample_sheet_df$ANALYSE_TYPE[sample_sheet_df$ANALYSE_TYPE_CODE == "111"] = "PAC"
+
+
+
+  sample_sheet_df = sample_sheet_df[!is.na(colnames(sample_sheet_df))]
+  return(sample_sheet_df)
+
+
+}
+
 
 #' Write barcode-file for demultiplexing
 #'
