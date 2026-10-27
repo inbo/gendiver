@@ -343,12 +343,12 @@ controls = names(type.tb)[! grepl("Metabarcoding|eDNA",names(type.tb))]
 control_plots = as.list(controls, controls)
 names(control_plots) = controls
 
-fH = min(150, max(type.tb[controls])*0.2)
+fH = min(150, max(type.tb[controls]))
 ```
 
 
 
-```{r plot-c, fig.height=fH, fig.width=20, echo=F, results='asis'}
+```{r plot-c, fig.width=10, echo=F, results='asis'}
 
 for (typei in controls){
   cdata_samples = sample_sheet$UNIQUE_SAMPLE_CODE[sample_sheet$ANALYSE_TYPE == typei]
