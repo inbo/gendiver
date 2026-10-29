@@ -127,6 +127,7 @@ convert.sample_sheet_pre2024 = function(sample_sheet_df){
 #' @param lab_sample_sheet Dataframe with lab-sample-data (see \link[gendiver]{read.sample_sheet_lab})
 #' @param out_dir Directory path to write barcode-files to
 #' @param LIB_COL Column name or ID designating the multiplexed POOLs
+#' @param nextits Write barcode files to fasta format as expected by NextITS (cutadapt)
 #'
 #' @returns Nothing, prints POOL-ids and writes files to `outdir`
 #' @export

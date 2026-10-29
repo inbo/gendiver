@@ -4,7 +4,7 @@
 \alias{write.barcode_files}
 \title{Write barcode-file for demultiplexing}
 \usage{
-write.barcode_files(lab_sample_sheet, out_dir, LIB_COL = 1)
+write.barcode_files(lab_sample_sheet, out_dir, LIB_COL = 1, nextits = FALSE)
 }
 \arguments{
 \item{lab_sample_sheet}{Dataframe with lab-sample-data (see \link[gendiver]{read.sample_sheet_lab})}
@@ -12,6 +12,8 @@ write.barcode_files(lab_sample_sheet, out_dir, LIB_COL = 1)
 \item{out_dir}{Directory path to write barcode-files to}
 
 \item{LIB_COL}{Column name or ID designating the multiplexed POOLs}
+
+\item{nextits}{Write barcode files to fasta format as expected by NextITS (cutadapt)}
 }
 \value{
 Nothing, prints POOL-ids and writes files to `outdir`
