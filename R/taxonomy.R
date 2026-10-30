@@ -104,7 +104,7 @@ add_custom_taxonomy = function(taxonomy_df, fillNA=F){
 }
 
 # clean unrsolved
-clean_NA_taxonomies = function(tax_df, unk_pattern="unresolv|unknown|unclassif|undefin|uncertain|unassign"){
+clean_NA_taxonomies = function(tax_df, unk_pattern="unresolv|unknown|unclassif|undefin|uncertain|unassign|incertae"){
   mask_unk = sapply(tax_df, function(x) grepl(unk_pattern,x))
   tax_df[mask_unk] = NA
 
@@ -125,6 +125,7 @@ clean_taxonomies = function(tabraw){
   tabraw = lapply(tabraw, gsub, pattern = "class_", replacement = "")
   tabraw = lapply(tabraw, gsub, pattern = "phylum_", replacement = "")
   tabraw = lapply(tabraw, gsub, pattern = ".* sp\\. .*", replacement = "")
+  tabraw = lapply(tabraw, gsub, pattern = "_X+$", replacement = "_unassigned") #coidb
 
   out = as.data.frame(tabraw)
   out = clean_NA_taxonomies(out)
@@ -158,7 +159,7 @@ parse.utax_string = function(x, is_pred=F){
     return(data.frame("species"=NA))
   }
   # split taxon-levels ,
-  xspl = unlist(strsplit(x, ",*[dpcofgst]:"))[-1]
+  xspl = unlist(strsplit(x, ",*[kdpcofgst]:"))[-1]
 
   # name to first letter
   names(xspl) = c("domain", "phylum", "class", "order", "family", "genus", "species", "strain")[1:length(xspl)]
@@ -213,11 +214,7 @@ read.taxonomy_sintax = function(sintax_path, read_supported_only=TRUE, add_sourc
 
   if (clean_tax) {tax_supp = clean_taxonomies(tax_supp)}
   if (add_source) {tax_supp$SOURCE_FILE = basename(sintax_path)}
-  if (add_custom){
-    # Add full names
-    colnames(tax_supp) = c("kingdom", "phylum", "class", "order", "family", "genus", "species")
-    tax_supp = add_custom_taxonomy(tax_supp)
-  }
+  if (add_custom) {tax_supp = add_custom_taxonomy(tax_supp)}
   tax_supp = as.data.frame(tax_supp)
   # Add OTU-IDs back to data (and remove possible ';size=' info)
   rownames(tax_supp) = gsub(";size=\\d*", "" , rtab$QUERY_LABEL)

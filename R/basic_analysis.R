@@ -150,7 +150,7 @@ make.default_project_barplots = function(ps_obj, RRA=F, out_path=NA){
 
   prj_l = list()
 
-  for (sub_project_i in unique(PRJ)){
+  for (sub_project_i in c(unique(PRJ))){
 
     sub_ps = phyloseq::prune_samples(phyloseq::sample_data(ps_obj)$PROJECT==sub_project_i, ps_obj)
 

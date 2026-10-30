@@ -16,11 +16,17 @@ output:
     toc_float: true
 urlcolor: blue
 params:
-  SAMPLE_SHEET_URL: "URL-sample-sheet"
-  TAX_PATH: "TAX-result"
-  OTU_PATH: "OTU-table"
-  FASTA_PATH: "FASTA-path"
+  # SAMPLE_SHEET_URL: "URL-sample-sheet"
+  # TAX_PATH: "TAX-result"
+  # OTU_PATH: "OTU-table"
+  # FASTA_PATH: "FASTA-path"
+  # OUT_DIR: "."
+  SAMPLE_SHEET_URL: "https://docs.google.com/spreadsheets/d/1eOoEj7W_y1_6b9wLs2DXEeIwlepmL_zMcFg51-cowX8/edit?gid=227355252#gid=227355252"
+  TAX_PATH: "/lustre1/project/stg_00184/genetic_diversity/projects/26012_InseKP/26012_Macroinvertebraten/02_taxonomy/26012_Macroinvertebraten.uniques.swarm.seeds.minR1.nonchim.SWARMED.MUMU.coidb.sintax.exclNA.BS0.8.sintax.table"
+  OTU_PATH: "/lustre1/project/stg_00184/genetic_diversity/projects/26012_InseKP/26012_Macroinvertebraten/01_clustering/26012_Macroinvertebraten.SWARM.MUMU.table"
+  FASTA_PATH: "/lustre1/project/stg_00184/genetic_diversity/projects/26012_InseKP/26012_Macroinvertebraten/01_clustering/26012_Macroinvertebraten.uniques.swarm.seeds.minR1.nonchim.SWARMED.MUMU.fasta"
   OUT_DIR: "."
+  
 ---
 
 ```{r setup, echo=FALSE,}
@@ -135,23 +141,24 @@ ps
 
 # Export datasets
 
-```{r export-edna-water, eval=(TAX_TOOL == "OBITOOLS3")}
+```{r export-ps}
 datadir = file.path(params$OUT_DIR, "data_export")
 dir.create(datadir)
+saveRDS(ps, file.path(datadir, paste0(PROJ_NAME, "_phyloseq_raw.rds" )))
+```
+
+```{r export-edna-water, eval=(TAX_TOOL == "OBITOOLS3")}
 gendiver::export.data_sets(
   sample_sheet_df = sample_sheet, otu_df = otu_df, tax_df = tax_df_raw, out_path = datadir)
 ```
 
-```{r export-ps}
-saveRDS(ps, file.path(paste0(PROJ_NAME, "_phyloseq_raw.rds" )))
-```
 
 # Basic exploration of Operational Data
 
 ```{r basic-explore, fig.width=10, echo=F, fig.align='center'}
 
 gendiver::qcplot.basic_exploration(ps)
-
+sfigh=5
 ```
 
 
@@ -413,10 +420,9 @@ omit_cutoff = round(median(sample_sums(ps)) * 0.01)
 
 ```{r, fig.width=15, fig.height=15}
 
+qcplot.plate_heatmap_readcount(ps, all_wells = T, mark_data = T, cutoff = omit_cutoff)
 
-qcplot.plate_heatmap_readcount(ps, omit_cutoff = omit_cutoff)
-
-qcplot.plate_heatmap_readcount(ps, omit_cutoff = omit_cutoff, transform = "log")
+# qcplot.plate_heatmap_readcount(ps, transform = "log10", cutoff = 100, all_wells = T)
 
 ```
 
@@ -429,7 +435,7 @@ qcplot.plate_heatmap_readcount(ps, omit_cutoff = omit_cutoff, transform = "log")
 fs_mask = sample_sums(ps) < omit_cutoff
 
 if (sum(fs_mask) > 0){
-  failedsamples = prune_samples(, ps)
+  failedsamples = prune_samples(fs_mask, ps)
   failedsamples = prune_taxa(taxa_sums(failedsamples) > 0, failedsamples)
   failedsamples
 } else {
@@ -441,7 +447,7 @@ if (sum(fs_mask) > 0){
 
 
 ```{r failed-samples-view, fig.width=15, fig.height=8, eval=(sum(fs_mask) > 0)}
-make.taxa_barplot(failedsamples, taxa_rank = "species", taxa_excl = NA) + ggtitle(paste0('Samples with < ', omit_cutoff, ' (1% of median) reads'))
+make.taxa_barplot(failedsamples, taxa_rank = "species") + ggtitle(paste0('Samples with < ', omit_cutoff, ' (1% of median) reads'))
 ```
 
 
@@ -462,10 +468,10 @@ ct_list = unique(ttdf$custom_taxon)
 for (cct in ct_list){
   ps_SELECT = prune_taxa(ttdf$custom_taxon == cct, ps)
   taxa_omit = round(omit_cutoff * 0.1)
-  zpl = qcplot.plate_heatmap_readcount(ps_SELECT, omit_cutoff = taxa_omit) 
+  zpl = qcplot.plate_heatmap_readcount(ps_SELECT) 
   
   if (!is.null(zpl)){
-    zpl = zpl + ggtitle(paste0("Read counts per well, only ", ID_cutoff, "ID reads, taxon=", cct ))
+    zpl = zpl + ggtitle(paste0("Read counts per well",", taxon=", cct ))
 
   } else {
     zpl=paste("No samples with more than", taxa_omit, cct, "reads" )
@@ -584,7 +590,7 @@ ggplot(data=plotdata) +
 - **These plots can be found in a supplementary folder alongside this report!** 
 - (`r SUPP_DIR`)
 
-```{r export-ppbar-plots, warning=F}
+```{r export-ppbar-plots, eval=(TAX_TOOL == "OBITOOLS3"), warning=F}
 
 make.default_project_barplots(ps, RRA=F, out_path = file.path(SUPP_DIR, "project_barplots"))
 make.default_project_barplots(ps, RRA=T, out_path = file.path(SUPP_DIR, "project_barplots_RRA"))
